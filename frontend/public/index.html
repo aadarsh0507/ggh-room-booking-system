@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Hospital Room Booking & Allotment System"
+    />
+    <!-- CRITICAL: Override server CSP to allow HTTP on internal LAN -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob:;">
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>Hospital Room Booking</title>
+    <script>
+      // CRITICAL: Detect internal LAN and log CSP override
+      if (window.location.hostname.includes('172.16') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        console.log('[INTERNAL-LAN] CSP meta tag allows HTTP - assets will load without SSL upgrade');
+      }
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

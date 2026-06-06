@@ -1,0 +1,31 @@
+# Dependencies — reinstalled inside image
+**/node_modules/
+frontend/node_modules/
+backend/node_modules/
+
+# Build artefacts
+frontend/build/
+backend/logs/
+
+# Secrets and local config
+backend/.env
+**/.env.local
+**/.env.*.local
+
+# Dev/CI artefacts
+**/*.log
+**/npm-debug.log*
+**/.playwright-mcp/
+**/reports/
+
+# Git + IDE
+.git/
+.gitignore
+.claude/
+**/*.md
+!README.md
+
+# Docker files (not needed inside image)
+docker/
+**/Dockerfile*
+**/.dockerignore

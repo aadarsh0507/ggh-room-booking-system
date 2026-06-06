@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: hospital-app
+    restart: always
+    ports:
+      - "8080:80"
+    env_file:
+      - ../backend/.env
+    environment:
+      - NODE_ENV=production
+      - INTERNAL_LAN=true
+      - PORT=80
+
+networks:
+  default:
+    driver: bridge
