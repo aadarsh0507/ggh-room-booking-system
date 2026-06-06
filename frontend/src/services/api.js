@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+// Use relative path so API calls always go to the same origin that served the page.
+// This works whether running locally (CRA proxy on :3000 → :5000) or in Docker
+// (Express serves both frontend and /api on the same port).
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
