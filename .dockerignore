@@ -8,18 +8,19 @@ backend/node_modules
 logs/
 npm-debug.log*
 
-# Environment files (never bake secrets into the image)
+# Environment files — exclude secrets, allow frontend build-time vars
 .env
-.env.*
 backend/.env
-backend/.env.*
+backend/.env.local
+backend/.env.production
+backend/.env.development
 frontend/.env
 frontend/.env.local
 frontend/.env.development
 frontend/.env.development.local
 frontend/.env.production.local
-# frontend/.env.production is intentionally allowed — it contains only public
-# build-time vars (REACT_APP_API_URL=/api) with no secrets
+# frontend/.env.production INTENTIONALLY NOT EXCLUDED — contains only
+# REACT_APP_API_URL=/api (no secrets) needed by CRA at build time
 
 # Build outputs (frontend is rebuilt in Stage 1)
 frontend/build

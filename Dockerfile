@@ -18,7 +18,10 @@ COPY frontend/ ./
 ARG VITE_API_URL=
 ARG VITE_ORGANIZER_EMAIL=
 
-RUN npm run build
+# Explicitly set REACT_APP_API_URL so CRA bakes /api into the bundle.
+# This ensures API calls always go to the same origin that serves the page,
+# whether deployed on 172.16.6.214:3010 or any other host.
+RUN REACT_APP_API_URL=/api npm run build
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────
 FROM node:20-alpine
