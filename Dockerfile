@@ -1,20 +1,10 @@
-# ============================================================================
 # Hospital Room Booking — Production Dockerfile
-# Stack: React 18 (CRA) frontend + Express/Node.js backend + MySQL + OracleDB HIS
+# React 18 (CRA) frontend + Express/Node.js backend
 #
-# Stage 1: Build React frontend  → /frontend/build
-# Stage 2: Production image      → Express serves API + static files on one port
-#
-# Build:
-#   docker build -t hospital-app:latest .
-#
-# Run:
-#   docker run -d -p 3010:5000 --env-file backend/.env hospital-app:latest
-# ============================================================================
+# Build:  docker build -t hospital-app:latest .
+# Run:    docker run -d -p 3010:5000 --env-file ~/env/roombooking.env hospital-app:latest
 
-# ============================================================================
-# STAGE 1: Build React Frontend (Create React App)
-# ============================================================================
+# ── Stage 1: Build React frontend ────────────────────────────────────────────
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /frontend
@@ -22,44 +12,35 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 
+# .env.production is included (allowed in .dockerignore) and sets REACT_APP_API_URL=/api
 COPY frontend/ ./
 
-# Declare build args passed by Jenkinsfile (VITE_* kept for CI compatibility; CRA uses REACT_APP_*)
 ARG VITE_API_URL=
 ARG VITE_ORGANIZER_EMAIL=
 
-# Build CRA app — output goes to /frontend/build
-# All /api calls go to same origin (Express handles both frontend + API)
-RUN REACT_APP_API_URL= npm run build
+RUN npm run build
 
-
-# ============================================================================
-# STAGE 2: Production Image
-# ============================================================================
+# ── Stage 2: Production image ─────────────────────────────────────────────────
 FROM node:20-alpine
 
-# Install OracleDB runtime dependencies (libaio required by oracledb)
 RUN apk add --no-cache libaio libnsl libc6-compat
 
 WORKDIR /app
 
-# Install backend production dependencies only
 COPY backend/package*.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
-# Copy backend source
 COPY backend/src ./src
 
-# Copy React build into the path Express expects: /app/frontend/build
+# Express looks for frontend at /app/frontend/build (path.join(__dirname, '../frontend/build'))
 COPY --from=frontend-builder /frontend/build ./frontend/build
 
-# Health check via Express
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:${PORT:-5000}/api/auth || exit 1
-
 ENV NODE_ENV=production
+ENV PORT=5000
 
-# Express listens on PORT (default 5000)
 EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD wget --quiet --tries=1 --spider http://localhost:5000/api/auth || exit 1
 
 CMD ["node", "src/server.js"]
