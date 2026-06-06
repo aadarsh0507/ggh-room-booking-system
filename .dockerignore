@@ -1,31 +1,54 @@
-# Dependencies — reinstalled inside image
-**/node_modules/
-frontend/node_modules/
-backend/node_modules/
+# Node dependencies (rebuilt inside Docker)
+node_modules
+frontend/node_modules
+backend/node_modules
 
-# Build artefacts
-frontend/build/
-backend/logs/
+# Logs
+*.log
+logs/
+npm-debug.log*
 
-# Secrets and local config
+# Environment files (never bake secrets into the image)
+.env
+.env.*
 backend/.env
-**/.env.local
-**/.env.*.local
+backend/.env.*
+frontend/.env
+frontend/.env.*
 
-# Dev/CI artefacts
-**/*.log
-**/npm-debug.log*
-**/.playwright-mcp/
-**/reports/
+# Build outputs (frontend is rebuilt in Stage 1)
+frontend/build
+backend/dist
 
-# Git + IDE
+# Test files
+tests/
+frontend/src/**/*.test.js
+backend/tests/
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Git
 .git/
 .gitignore
-.claude/
-**/*.md
-!README.md
+.gitattributes
 
-# Docker files (not needed inside image)
+# Docker files (not needed inside the image)
 docker/
-**/Dockerfile*
-**/.dockerignore
+Dockerfile
+Dockerfile.*
+
+# CI / scripts (not needed at runtime)
+Jenkinsfile
+*.ps1
+*.bat
+
+# Oracle client (must be mounted or installed separately if needed)
+oracle-client/
+oracle_tns/

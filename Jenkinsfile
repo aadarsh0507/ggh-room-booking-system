@@ -2,220 +2,238 @@ pipeline {
   agent any
 
   environment {
-    REGISTRY_URL      = 'https://ghcr.io'
-    GH_NAMESPACE      = 'ssmani5491'
-    GH_OWNER          = 'ssmani5491'
-    DOCKER_BUILDKIT   = '1'
-    GIT_CRED_ID       = 'github-pat-mani'
-    REACT_APP_API_URL = 'http://172.16.6.214:5008/api'
-    TRIVY_SEV_MAIN    = 'CRITICAL'
-    TRIVY_SEV_DEV     = 'CRITICAL'
-    ACTIVE_BRANCH     = 'main'
+    REGISTRY_URL    = 'https://ghcr.io'
+    // GitHub: use your own username (lowercase for GH_NAMESPACE)
+    GH_NAMESPACE    = 'aadarsh0507'   // lowercase
+    GH_OWNER        = 'aadarsh0507'   // GitHub username (must match repository owner)
+    DOCKER_BUILDKIT = '1'
+    // Jenkins → Credentials: kind "Username with password". ID must match this value (GitHub username + PAT).
+    // Used for: docker login ghcr.io, image push, git release tag push.
+    GIT_CRED_ID     = 'Jenkins'
+    SONAR_TOKEN_ID  = 'sonar-token'
+
+    // Trivy policy: main strict, dev lenient
+    // Only fail on CRITICAL (HIGH vulnerabilities will be reported but not fail the build)
+    TRIVY_SEV_MAIN  = 'CRITICAL'
+    TRIVY_SEV_DEV   = 'CRITICAL'
+
+    // Frontend baked into the image at docker build (optional). Set on the job / folder in Jenkins.
+    // DOCKER_VITE_API_URL — public API origin, no /api suffix (empty = same-origin).
+    // DOCKER_VITE_ORGANIZER_EMAIL — shown on the public scheduling page.
   }
 
-  options {
-    timestamps()
-    timeout(time: 60, unit: 'MINUTES')
-    skipDefaultCheckout(true)
-  }
+  options { timestamps() }
 
+  // Trigger: run on push (poll every 2 min) or enable "GitHub hook trigger" in job config for immediate build
   triggers {
-    // Triggers are managed via Jenkins UI configuration
-    // Uncomment to enable:
-    // githubPush()           // fires instantly on GitHub webhook push event
-    // pollSCM('* * * * *')   // poll every 1 min as reliable fallback
-    // For now, use: githubPush() to enable webhook
-    githubPush()
+    pollSCM('H/2 * * * *')
   }
 
   stages {
-
-    /* ---------- 0) Clean workspace + Checkout ---------- */
     stage('Checkout') {
       steps {
-        cleanWs()
         checkout scm
         script {
+          // Prefer Jenkins-provided GIT_BRANCH, fall back to git
           def rawBranch = env.GIT_BRANCH ?: sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-          def normalized = rawBranch.replaceFirst(/^origin[0-9]*\//, '')
-          env.ACTIVE_BRANCH = normalized
-          echo "Active git branch: ${env.ACTIVE_BRANCH} (raw: ${rawBranch})"
+          // Normalize values like 'origin/aadarsh' or 'origin1/aadarsh' to just 'aadarsh'
+          def normalized = rawBranch.replaceFirst(/^origin1?\//, '')
+          env.BRANCH_NAME = normalized
+          echo "Active git branch: ${env.BRANCH_NAME} (raw: ${rawBranch})"
         }
       }
     }
 
-    /* ---------- 1) SonarQube scan (non-blocking) ---------- */
+    /* ---------- 1) SonarQube code scan ---------- */
     stage('Sonar Scan') {
+      // Run Sonar on main branches every time
+      when {
+        anyOf {
+          branch 'main'
+          branch 'dev'
+          branch 'aadarsh'
+        }
+      }
       steps {
         script {
-          try {
-            def scannerHome = tool name: 'sonar-scanner',
-                                   type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-            def rawRepo = sh(returnStdout: true,
-                             script: "basename -s .git \$(git config --get remote.origin.url)").trim()
-            def sqKey   = rawRepo.replaceAll('[^A-Za-z0-9:_\\-\\.]', '-')
-            withSonarQubeEnv('sonar') {
+          def scannerHome = tool name: 'sonar-scanner',
+                                 type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+
+          def rawRepo = sh(returnStdout:true,
+                           script:"basename -s .git \$(git config --get remote.origin.url)").trim()
+
+          def sqKey   = rawRepo.replaceAll('[^A-Za-z0-9:_\\-\\.]','-')
+
+          // Token comes only from SonarQube server config (Manage Jenkins > Configure System > sonar)
+          withSonarQubeEnv('sonar') {
+            if (fileExists('sonar-project.properties')) {
+              sh """
+                ${scannerHome}/bin/sonar-scanner \
+                  -Dproject.settings=sonar-project.properties \
+                  -Dsonar.scm.provider=git \
+                  -Dsonar.scm.forceReloadAll=true \
+                  -Dsonar.issuesReport.html.enable=true \
+                  -Dsonar.types=BUG,VULNERABILITY,CODE_SMELL
+              """
+            } else {
               sh """
                 ${scannerHome}/bin/sonar-scanner \
                   -Dsonar.projectKey=${sqKey} \
                   -Dsonar.projectName=${rawRepo} \
-                  -Dsonar.sources=backend,frontend/src \
-                  -Dsonar.exclusions=**/node_modules/**,**/build/**,**/dist/**,**/*.min.js,**/*.map,**/.env,**/*.env,**/service-account.json,**/*token*.json,**/*secret*.json \
+                  -Dsonar.sources=backend,frontend \
+                  -Dsonar.exclusions=**/node_modules/**,**/build/**,**/dist/**,**/*.min.js,**/*.map,**/android/**,**/*.java,**/.env,**/*.env,**/.data/**,**/service-account.json,**/*token*.json,**/*secret*.json \
                   -Dsonar.sourceEncoding=UTF-8 \
                   -Dsonar.scm.provider=git \
-                  -Dsonar.scm.forceReloadAll=true
+                  -Dsonar.scm.forceReloadAll=true \
+                  -Dsonar.issuesReport.html.enable=true \
+                  -Dsonar.types=BUG,VULNERABILITY,CODE_SMELL
               """
             }
-          } catch (Exception e) {
-            echo "WARNING: SonarQube unavailable: ${e.getMessage()} — continuing"
-            currentBuild.result = 'UNSTABLE'
           }
         }
       }
     }
 
-    /* ---------- 2) Quality Gate (non-blocking) ---------- */
+    /* ---------- 2) Sonar Quality Gate ---------- */
     stage('Quality Gate') {
+      when {
+        anyOf {
+          branch 'main'
+          branch 'dev'
+          branch 'aadarsh'
+        }
+      }
       steps {
-        script {
-          try {
-            timeout(time: 10, unit: 'MINUTES') {
-              def qg = waitForQualityGate abortPipeline: false
-              if (qg.status != 'OK') {
-                echo "WARNING: Quality Gate status: ${qg.status} — continuing"
-                currentBuild.result = 'UNSTABLE'
-              }
-            }
-          } catch (Exception e) {
-            echo "WARNING: Quality Gate check failed: ${e.getMessage()} — continuing"
-            currentBuild.result = 'UNSTABLE'
-          }
+        timeout(time: 10, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
         }
       }
     }
 
-    /* ---------- 3) Trivy filesystem scan ---------- */
+    /* ---------- 3) Trivy Code Scan ---------- */
     stage('Trivy Code Scan') {
       steps {
         script {
           sh 'mkdir -p reports'
-          def sev         = env.TRIVY_SEV_MAIN
-          def trivyExists = sh(returnStatus: true, script: 'command -v trivy >/dev/null 2>&1') == 0
-          def ignoreFlag  = fileExists('.trivyignore') ? '--ignorefile .trivyignore' : ''
-          def skipDirs    = '--skip-dirs node_modules --skip-dirs .git --skip-dirs build --skip-dirs dist --skip-dirs reports'
-
+          def sev = (env.BRANCH_NAME == 'main') ? env.TRIVY_SEV_MAIN : env.TRIVY_SEV_DEV
+          echo "Trivy filesystem scan: Enforcing severity threshold '${sev}' (failures will occur if ${sev} vulnerabilities are found)"
+          def trivyExists = sh(returnStatus:true,
+                               script:'command -v trivy >/dev/null 2>&1') == 0
+          def hasIgnoreFile = fileExists('.trivyignore')
+          def ignoreFileFlag = hasIgnoreFile ? '--ignorefile .trivyignore' : ''
+          def dockerIgnoreFileFlag = hasIgnoreFile ? '--ignorefile /workspace/.trivyignore' : ''
+          int rc
           if (trivyExists) {
-            sh """
+            rc = sh(returnStatus:true, script: """
               trivy fs --no-progress --skip-version-check \
-                --severity ${sev} --exit-code 0 \
-                --format table ${skipDirs} --scanners vuln ${ignoreFlag} \
-                . > reports/trivy-fs-console.txt 2>&1 || true
-              cat reports/trivy-fs-console.txt || true
-              trivy fs --no-progress --skip-version-check \
-                --severity ${sev} --exit-code 0 \
+                --severity ${sev} --exit-code 1 \
                 --format json -o reports/trivy-fs.json \
-                ${skipDirs} --scanners vuln ${ignoreFlag} . > /dev/null 2>&1 || true
-            """
+                --skip-dirs "certificates" \
+                --skip-dirs "certificates/ssl" \
+                --skip-dirs ".git" \
+                --skip-dirs "node_modules" \
+                --skip-dirs "dist" \
+                --skip-dirs "build" \
+                --skip-dirs "reports" \
+                --skip-dirs "docker" \
+                --scanners vuln \
+                ${ignoreFileFlag} \
+                . \
+                > reports/trivy-fs-console.txt 2>&1
+            """)
           } else {
-            sh """
+            rc = sh(returnStatus:true, script: """
               docker run --rm \
-                -v ${WORKSPACE}:/workspace aquasec/trivy:latest \
-                fs --no-progress --skip-version-check \
-                --severity ${sev} --exit-code 0 \
-                --format table --skip-dirs node_modules --skip-dirs .git \
-                --scanners vuln /workspace \
-                > ${WORKSPACE}/reports/trivy-fs-console.txt 2>&1 || true
-              cat ${WORKSPACE}/reports/trivy-fs-console.txt || true
-            """
+                -v ${WORKSPACE}:/workspace aquasec/trivy:latest fs --no-progress --skip-version-check \
+                --severity ${sev} --exit-code 1 \
+                --format json -o /workspace/reports/trivy-fs.json \
+                --skip-dirs "certificates" \
+                --skip-dirs "certificates/ssl" \
+                --skip-dirs ".git" \
+                --skip-dirs "node_modules" \
+                --skip-dirs "dist" \
+                --skip-dirs "build" \
+                --skip-dirs "reports" \
+                --skip-dirs "docker" \
+                --scanners vuln \
+                ${dockerIgnoreFileFlag} \
+                /workspace \
+                > ${WORKSPACE}/reports/trivy-fs-console.txt 2>&1
+            """)
           }
           archiveArtifacts artifacts: 'reports/trivy-fs*', allowEmptyArchive: true
+          if (rc != 0) {
+            error "Trivy found ${sev} vulnerabilities in source code. Check reports/trivy-fs.json"
+          }
         }
       }
     }
 
-    /* ---------- 4) Frontend build (pre-build via Docker for cache) ---------- */
-    stage('Frontend Build') {
-      options { timeout(time: 35, unit: 'MINUTES') }
-      steps {
-        sh """
-          set -eu
-          echo "=== Building React frontend ==="
-          docker run --rm \
-            --shm-size=2gb \
-            -e CI=false \
-            -e DISABLE_ESLINT_PLUGIN=true \
-            -e GENERATE_SOURCEMAP=false \
-            -e NODE_OPTIONS=--max-old-space-size=6144 \
-            -e SKIP_PREFLIGHT_CHECK=true \
-            -e REACT_APP_API_URL="${REACT_APP_API_URL}" \
-            -e NPM_CONFIG_CACHE=/tmp/npm-cache \
-            -v "${WORKSPACE}:${WORKSPACE}:rw" \
-            -w "${WORKSPACE}/frontend" \
-            node:20-slim \
-            bash -lc "set -eu; npm install --ignore-scripts --prefer-offline 2>/dev/null || npm install --ignore-scripts; npm run build; test -f build/index.html"
-          echo "=== Frontend build complete ==="
-        """
-      }
-    }
-
-    /* ---------- 5) Docker image build ---------- */
+    /* ---------- 4) Docker build (single full-stack image) ---------- */
     stage('Docker Build') {
-      options { timeout(time: 40, unit: 'MINUTES') }
+      when { anyOf { branch 'main'; branch 'dev'; branch 'aadarsh' } }
       steps {
         script {
-          // Repo name is 'roombooking'
-          env.RAW_REPO = 'roombooking'
-          def imageRepo = 'roombooking'
-          env.IMAGE     = "ghcr.io/${env.GH_NAMESPACE}/${imageRepo}"
+          env.RAW_REPO  = sh(returnStdout:true,
+                             script:"basename -s .git \$(git config --get remote.origin.url)").trim()
+          def imageRepo = env.RAW_REPO.toLowerCase()
+                           .replaceAll('[^a-z0-9._-]','')
+                           .replaceAll('^[-._]+|[-._]+$','')
 
-          def gitCommit  = env.GIT_COMMIT ?: sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-          env.GIT_COMMIT = gitCommit
-          def shortSha   = gitCommit.take(7)
-          def buildNo    = env.BUILD_NUMBER
-          def latestTag  = sh(returnStdout: true,
-                              script: "git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0").trim()
-          def parts      = latestTag.replace('v', '').tokenize('.')
-          def MAJOR      = (parts.size() > 0 ? parts[0].replaceAll('[^0-9].*', '') : '0') as int
-          def MINOR      = (parts.size() > 1 ? parts[1].replaceAll('[^0-9].*', '') : '0') as int
-          def PATCH      = (parts.size() > 2 ? parts[2].replaceAll('[^0-9].*', '') : '0') as int
+          if (!imageRepo) { error "Invalid repo '${env.RAW_REPO}' → cannot derive image name." }
+
+          // Single full-stack image: nginx (frontend) + Node backend
+          env.IMAGE = "ghcr.io/${env.GH_NAMESPACE}/${imageRepo}"
+
+          def shortSha = env.GIT_COMMIT.take(7)
+          def buildNo  = env.BUILD_NUMBER
+
+          def latestTag = sh(returnStdout:true,
+                             script:"git describe --tags --abbrev=0 2>/dev/null || echo v0.0.0").trim()
+
+          def parts     = latestTag.replace('v','').tokenize('.')
+          def MAJOR     = (parts.size()>0 ? parts[0].replaceAll('[^0-9].*','') : '0') as int
+          def MINOR     = (parts.size()>1 ? parts[1].replaceAll('[^0-9].*','') : '0') as int
+          def PATCH     = (parts.size()>2 ? parts[2].replaceAll('[^0-9].*','') : '0') as int
 
           env.NEXT_VERSION = "v${MAJOR}.${MINOR}.${PATCH + 1}"
           env.RC_VERSION   = "${env.NEXT_VERSION}-rc.${buildNo}"
 
-          def isMain       = (env.ACTIVE_BRANCH == 'main')
-          env.TAGS         = isMain
+          def isMainBranch = (env.BRANCH_NAME == 'main')
+          env.TAGS = isMainBranch
             ? "prod,latest,${env.NEXT_VERSION},${shortSha}"
             : "dev,${env.RC_VERSION},${shortSha}"
-          env.PRIMARY_TAG  = env.TAGS.split(',')[0]
-          def versionLabel = isMain ? env.NEXT_VERSION : env.RC_VERSION
 
-          echo "Building ${env.IMAGE}:${env.PRIMARY_TAG}"
+          env.PRIMARY_TAG = env.TAGS.split(',')[0]
+
+          def versionLabel = isMainBranch ? env.NEXT_VERSION : env.RC_VERSION
+
+          echo "Building ${env.IMAGE}:${env.PRIMARY_TAG} (branch: ${env.BRANCH_NAME})"
+
+          // Pre-flight: Dockerfile + docker daemon (GHCR login happens in Push only).
+          sh '''
+            set -eu
+            echo "=== Docker pre-flight ==="
+            echo "Workspace: $(pwd)"
+            test -f Dockerfile || { echo "ERROR: ./Dockerfile not found in workspace root."; exit 1; }
+            command -v docker >/dev/null 2>&1 || { echo "ERROR: docker CLI not installed on this Jenkins agent."; exit 1; }
+            docker info >/dev/null 2>&1 || {
+              echo "ERROR: cannot reach Docker daemon (permission denied?). Add jenkins user to docker group."
+              exit 1
+            }
+            echo "Docker daemon OK."
+          '''
 
           sh """
-            set -eu
-            test -f Dockerfile || { echo "ERROR: Dockerfile not found"; exit 1; }
-            docker info >/dev/null 2>&1 || { echo "ERROR: Docker daemon unreachable"; exit 1; }
-
-            ( while true; do
-                sleep 10
-                echo "[keep-alive] \$(date -u +%H:%M:%SZ) docker build running..."
-                touch "\${WORKSPACE}/.heartbeat" 2>/dev/null || true
-              done ) &
-            KEEP=\$!
-
-            docker build -f Dockerfile \
-              --build-arg REACT_APP_API_URL="${REACT_APP_API_URL}" \
-              -t ${env.IMAGE}:${env.PRIMARY_TAG} \
-              --progress=plain \
-              --label ci.branch=${env.ACTIVE_BRANCH} \
-              --label ci.sha=${env.GIT_COMMIT} \
-              --label ci.build=${buildNo} \
-              --label ci.repo=${env.RAW_REPO} \
-              --label ci.version=${versionLabel} \
+            docker build -f Dockerfile -t ${env.IMAGE}:${env.PRIMARY_TAG} \\
+              --build-arg VITE_API_URL="\${DOCKER_VITE_API_URL:-}" \\
+              --build-arg VITE_ORGANIZER_EMAIL="\${DOCKER_VITE_ORGANIZER_EMAIL:-}" \\
+              --label ci.branch=${env.BRANCH_NAME} \\
+              --label ci.sha=${env.GIT_COMMIT} \\
+              --label ci.build=${buildNo} \\
+              --label ci.repo=${env.RAW_REPO} \\
+              --label ci.version=${versionLabel} \\
               .
-            EXIT=\$?
-            kill \$KEEP 2>/dev/null || true
-            exit \$EXIT
           """
 
           for (t in env.TAGS.split(',')) {
@@ -228,95 +246,211 @@ pipeline {
       }
     }
 
-    /* ---------- 6) Trivy image scan ---------- */
-    stage('Trivy Image Scan') {
+    /* ---------- 5) Trivy image scan (archive even on FAIL) ---------- */
+    stage('Trivy Scan') {
+      when { anyOf { branch 'main'; branch 'dev'; branch 'aadarsh' } }
       steps {
         script {
           sh 'mkdir -p reports'
-          def trivyExists = sh(returnStatus: true, script: 'command -v trivy >/dev/null 2>&1') == 0
-          def ignoreFlag  = fileExists('.trivyignore') ? '--ignorefile .trivyignore' : ''
-
-          if (trivyExists) {
-            sh """
-              trivy image --no-progress --skip-version-check \
-                --severity CRITICAL,HIGH --exit-code 0 \
-                --format table ${ignoreFlag} \
-                ${env.IMAGE}:${env.PRIMARY_TAG} \
-                > reports/trivy-image-summary.txt 2>&1 || true
-              cat reports/trivy-image-summary.txt || true
-              trivy image --no-progress --skip-version-check \
-                --severity CRITICAL --exit-code 0 \
-                --format json -o reports/trivy-image.json ${ignoreFlag} \
-                ${env.IMAGE}:${env.PRIMARY_TAG} > /dev/null 2>&1 || true
-            """
-          } else {
-            sh """
-              docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                aquasec/trivy:latest image --no-progress --skip-version-check \
-                --severity CRITICAL,HIGH --exit-code 0 --format table \
-                ${env.IMAGE}:${env.PRIMARY_TAG} \
-                > ${WORKSPACE}/reports/trivy-image-summary.txt 2>&1 || true
-              cat ${WORKSPACE}/reports/trivy-image-summary.txt || true
-            """
+          
+          // Verify image exists before scanning
+          def imageExists = sh(returnStatus:true, 
+                              script: "docker image inspect ${env.IMAGE}:${env.PRIMARY_TAG} >/dev/null 2>&1") == 0
+          if (!imageExists) {
+            echo "Image ${env.IMAGE}:${env.PRIMARY_TAG} not found. Skipping Trivy scan."
+            return
           }
+          
+          def sev = (env.BRANCH_NAME == 'main') ? env.TRIVY_SEV_MAIN : env.TRIVY_SEV_DEV
+          def failSeverity = sev
+          def trivyExists = sh(returnStatus:true,
+                               script:'command -v trivy >/dev/null 2>&1') == 0
+          try {
+            def hasIgnoreFile = fileExists('.trivyignore')
+            def ignoreFileFlag = hasIgnoreFile ? '--ignorefile .trivyignore' : ''
+            def dockerIgnoreFileFlag = hasIgnoreFile ? '--ignorefile /workspace/.trivyignore' : ''
+            
+            // Scan for HIGH and CRITICAL to show all issues, but only fail on CRITICAL
+            def scanSeverity = 'CRITICAL,HIGH'
+            
+            if (trivyExists) {
+              // First scan: report all HIGH and CRITICAL (warnings, no failure)
+              sh """
+                trivy image --no-progress --skip-version-check \
+                  --severity ${scanSeverity} --exit-code 0 \
+                  --format table \
+                  ${ignoreFileFlag} \
+                  ${env.IMAGE}:${env.PRIMARY_TAG} \
+                  > reports/trivy-image-summary.txt 2>&1 || true
+              """
+              
+              // Second scan: generate JSON for CRITICAL vulnerabilities only
+              sh """
+                trivy image --no-progress --skip-version-check \
+                  --severity ${failSeverity} --exit-code 0 \
+                  --format json -o reports/trivy-image.json \
+                  ${ignoreFileFlag} \
+                  ${env.IMAGE}:${env.PRIMARY_TAG} \
+                  > reports/trivy-console.txt 2>&1 || true
+              """
+            } else {
+              // First scan: report all HIGH and CRITICAL (warnings, no failure)
+              sh """
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v ${WORKSPACE}:/workspace aquasec/trivy:latest image --no-progress --skip-version-check \
+                  --severity ${scanSeverity} --exit-code 0 \
+                  --format table \
+                  ${dockerIgnoreFileFlag} \
+                  ${env.IMAGE}:${env.PRIMARY_TAG} \
+                  > ${WORKSPACE}/reports/trivy-image-summary.txt 2>&1 || true
+              """
+              
+              // Second scan: generate JSON for CRITICAL vulnerabilities only
+              sh """
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v ${WORKSPACE}:/workspace aquasec/trivy:latest image --no-progress --skip-version-check \
+                  --severity ${failSeverity} --exit-code 0 \
+                  --format json -o /workspace/reports/trivy-image.json \
+                  ${dockerIgnoreFileFlag} \
+                  ${env.IMAGE}:${env.PRIMARY_TAG} \
+                  > ${WORKSPACE}/reports/trivy-console.txt 2>&1 || true
+              """
+            }
+          } catch (Exception e) {
+            echo "ERROR: Trivy scan failed with exception: ${e.getMessage()}"
+            error "Trivy scan execution failed. Check reports/trivy-console.txt"
+          }
+          
           archiveArtifacts artifacts: 'reports/*', allowEmptyArchive: true
+          
+          // Show summary of all vulnerabilities (including HIGH)
+          if (fileExists('reports/trivy-image-summary.txt')) {
+            echo "=== Trivy Vulnerability Summary (HIGH + CRITICAL) ==="
+            sh 'cat reports/trivy-image-summary.txt || true'
+          }
+          
+          // Count CRITICAL vulnerabilities (no readJSON - use shell so no extra plugin needed)
+          def criticalCount = 0
+          if (fileExists('reports/trivy-image.json')) {
+            def criticalStr = sh(returnStdout: true, script: """
+              grep -o '"Severity":"CRITICAL"' reports/trivy-image.json 2>/dev/null | wc -l || echo 0
+            """).trim()
+            criticalCount = criticalStr.isInteger() ? criticalStr.toInteger() : 0
+          }
+          
+          if (criticalCount > 0) {
+            // Show last few lines of console output for debugging
+            sh """
+              echo "=== Trivy Scan Failed (CRITICAL vulnerabilities found) ==="
+              echo "Last 50 lines of Trivy output:"
+              tail -50 reports/trivy-console.txt || echo "Could not read trivy-console.txt"
+            """
+            error "Trivy found ${criticalCount} CRITICAL vulnerabilities in image ${env.IMAGE}:${env.PRIMARY_TAG}. Check reports/trivy-image.json"
+          } else {
+            echo "Trivy Scan Passed: No CRITICAL vulnerabilities found"
+            echo "Note: HIGH vulnerabilities may exist - check reports/trivy-image-summary.txt for details"
+          }
         }
       }
     }
 
-    /* ---------- 7) Push to GHCR ---------- */
+    /* ---------- 6) Push to GHCR (only if all above pass) ---------- */
     stage('Push') {
+      when { anyOf { branch 'main'; branch 'dev'; branch 'aadarsh' } }
       steps {
         script {
+          def imageExists = sh(returnStatus:true,
+                              script: "docker image inspect ${env.IMAGE}:${env.PRIMARY_TAG} >/dev/null 2>&1") == 0
+          if (!imageExists) {
+            error "Image ${env.IMAGE}:${env.PRIMARY_TAG} not found. Cannot push to registry."
+          }
+
           withCredentials([usernamePassword(
             credentialsId: env.GIT_CRED_ID,
             usernameVariable: 'GH_USER',
             passwordVariable: 'GH_PAT'
           )]) {
+            echo "DEBUG: IMAGE=${env.IMAGE}"
+            echo "DEBUG: TAGS=${env.TAGS}"
+            echo "DEBUG: PRIMARY_TAG=${env.PRIMARY_TAG}"
+
             sh """
-              echo "\${GH_PAT}" | docker login ghcr.io -u "${env.GH_OWNER}" --password-stdin
+              echo "Logging into GitHub Container Registry..."
+              echo "\${GH_PAT}" | docker login ghcr.io -u "\${GH_USER}" --password-stdin
             """
 
+            def tagsList = env.TAGS.split(',')
+            echo "DEBUG: Total tags to push: ${tagsList.size()}"
             def failedTags = []
-            for (t in env.TAGS.split(',')) {
+
+            for (t in tagsList) {
               def tag = t.trim()
-              if (!tag) continue
-              def ref    = "${env.IMAGE}:${tag}"
-              def exists = sh(returnStatus: true, script: "docker image inspect ${ref} >/dev/null 2>&1") == 0
-              if (!exists) { echo "WARNING: ${ref} not found locally, skipping"; continue }
-              def rc = sh(returnStatus: true, script: "docker push ${ref}")
-              if (rc == 0) {
-                echo "Pushed ${ref}"
+              if (tag) {
+                def ref = "${env.IMAGE}:${tag}"
+                echo "DEBUG: Pushing ${ref}"
+                try {
+                  def tagExists = sh(returnStatus:true,
+                                     script: "docker image inspect ${ref} >/dev/null 2>&1") == 0
+                  if (!tagExists) {
+                    echo "WARNING: Tag ${ref} does not exist, skipping"
+                    failedTags.add("${ref} (not found)")
+                    continue
+                  }
+
+                  def pushRc = sh(returnStatus:true, script: "docker push ${ref} 2>&1")
+                  if (pushRc == 0) {
+                    echo "SUCCESS: Pushed ${ref}"
+                  } else {
+                    echo "ERROR: Failed to push ${ref} (exit code: ${pushRc})"
+                    failedTags.add("${ref} (push failed)")
+                  }
+                } catch (Exception e) {
+                  echo "ERROR: Exception while pushing ${ref} - ${e.getMessage()}"
+                  failedTags.add("${ref} (exception: ${e.getMessage()})")
+                }
               } else {
-                echo "ERROR: Failed to push ${ref}"
-                failedTags.add(ref)
+                echo "WARNING: Empty tag found, skipping"
               }
             }
 
             if (failedTags.size() > 0) {
-              error "Failed to push: ${failedTags.join(', ')}"
+              error "Failed to push the following tags: ${failedTags.join(', ')}"
+            } else {
+              echo "SUCCESS: All tags pushed successfully"
             }
+          }
 
-            // Create git release tag on main
-            if (env.ACTIVE_BRANCH == 'main') {
+          if (env.BRANCH_NAME == 'main') {
+            withCredentials([usernamePassword(credentialsId: env.GIT_CRED_ID,
+                                              usernameVariable: 'GH_USER',
+                                              passwordVariable: 'GH_PAT')]) {
               try {
                 sh """
                   git config user.email "ci@jenkins"
                   git config user.name  "Jenkins CI"
+                  
+                  # Check if tag already exists locally
                   if git tag -l | grep -q "^${env.NEXT_VERSION}\$"; then
+                    echo "Tag ${env.NEXT_VERSION} already exists locally, deleting it first"
                     git tag -d ${env.NEXT_VERSION}
                   fi
-                  if git ls-remote --tags https://${env.GH_OWNER}:\${GH_PAT}@github.com/${env.GH_OWNER}/roombooking.git | grep -q "refs/tags/${env.NEXT_VERSION}\$"; then
-                    echo "Tag ${env.NEXT_VERSION} already on remote, skipping"
+                  
+                  # Check if tag exists on remote
+                  if git ls-remote --tags https://\${GH_USER}:\${GH_PAT}@github.com/${env.GH_OWNER}/${env.RAW_REPO}.git | grep -q "refs/tags/${env.NEXT_VERSION}\$"; then
+                    echo "Tag ${env.NEXT_VERSION} already exists on remote, skipping tag creation"
                   else
-                    git tag -a ${env.NEXT_VERSION} -m "Release ${env.NEXT_VERSION}"
-                    git push https://${env.GH_OWNER}:\${GH_PAT}@github.com/${env.GH_OWNER}/roombooking.git ${env.NEXT_VERSION}
-                    echo "Tagged ${env.NEXT_VERSION}"
+                    echo "Creating new tag ${env.NEXT_VERSION}"
+                    git tag -a ${env.NEXT_VERSION} -m "Release ${env.NEXT_VERSION} from Jenkins"
+                    git push https://\${GH_USER}:\${GH_PAT}@github.com/${env.GH_OWNER}/${env.RAW_REPO}.git ${env.NEXT_VERSION}
                   fi
                 """
+                echo "SUCCESS: Git tag operation completed"
               } catch (Exception e) {
-                echo "WARNING: Git tag failed: ${e.getMessage()} — continuing"
+                echo "WARNING: Git tag operation failed: ${e.getMessage()}"
+                echo "Continuing pipeline despite tag failure..."
+                // Don't fail the entire pipeline if tag creation fails
               }
             }
           }
@@ -324,31 +458,35 @@ pipeline {
       }
     }
 
-    /* ---------- 8) Cleanup ---------- */
-    stage('Cleanup') {
+    /* ---------- 7) Cleanup Local Images after push ---------- */
+    stage('Cleanup Local Images') {
+      when { anyOf { branch 'main'; branch 'dev'; branch 'aadarsh' } }
       steps {
         script {
-          if (env.IMAGE && env.TAGS) {
-            for (t in env.TAGS.split(',')) {
-              sh "docker rmi ${env.IMAGE}:${t.trim()} 2>/dev/null || true"
-            }
+          // remove all tags we created for the single image
+          for (t in env.TAGS.split(',')) {
+            sh "docker rmi ${env.IMAGE}:${t} || true"
           }
-          sh 'docker image prune -f || true'
-          sh 'docker builder prune -f || true'
+          // aggressive prune: unused images + build cache
+          sh 'docker image prune -af || true'
+          sh 'docker builder prune -af || true'
+          // (optional) show disk usage after cleanup
+          sh 'docker system df || true'
         }
       }
+    }
+
+    stage('Skip notice') {
+      when { not { anyOf { branch 'main'; branch 'dev'; branch 'aadarsh' } } }
+      steps { echo "Only main, dev & aadarsh branches build. '${env.BRANCH_NAME}' skipped." }
     }
   }
 
   post {
     always {
-      node(null) {
-        sh 'docker logout ghcr.io 2>/dev/null || true'
-        sh 'docker image prune -f 2>/dev/null || true'
-      }
+      sh 'docker logout ghcr.io || true'
+      // keep this for dangling layers from failed runs
+      sh 'docker image prune -f || true'
     }
-    success  { echo "Pipeline SUCCESS — image pushed to ghcr.io/ssmani5491/roombooking" }
-    unstable { echo "Pipeline UNSTABLE — check SonarQube/Trivy warnings" }
-    failure  { echo "Pipeline FAILED — check logs above" }
   }
 }
