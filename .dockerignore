@@ -14,7 +14,12 @@ npm-debug.log*
 backend/.env
 backend/.env.*
 frontend/.env
-frontend/.env.*
+frontend/.env.local
+frontend/.env.development
+frontend/.env.development.local
+frontend/.env.production.local
+# frontend/.env.production is intentionally allowed — it contains only public
+# build-time vars (REACT_APP_API_URL=/api) with no secrets
 
 # Build outputs (frontend is rebuilt in Stage 1)
 frontend/build
