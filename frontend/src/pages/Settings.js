@@ -21,26 +21,27 @@ const FEATURES = [
     items: [
       { label: 'Dashboard',            desc: 'KPI cards, occupancy heatmap, charts',             roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
       { label: 'Occupied Beds',        desc: 'View current in-patients & bystanders',            roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
-      { label: 'Bed List',             desc: 'View all beds with status',                        roles: ['Admin','Receptionist','Nurse'] },
-      { label: 'Discharge',            desc: 'Patients awaiting billing after discharge',        roles: ['Admin','Receptionist','Billing'] },
-      { label: 'Book a Bed',           desc: 'Browse available beds & create pre-bookings',      roles: ['Admin','Receptionist'] },
-      { label: 'Pre-Booking Report',   desc: 'View, filter & export pre-booking records',        roles: ['Admin','Receptionist','Nurse'] },
-      { label: 'Settings',             desc: 'User management, permissions, restrictions',       roles: ['Admin'] },
+      { label: 'Bed List',             desc: 'View all beds with status',                        roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Discharge',            desc: 'Patients awaiting billing after discharge',        roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Available Beds',       desc: 'Beds discharged & billed — ready for new admissions', roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Book a Bed',           desc: 'Browse available beds & create pre-bookings',      roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Pre-Booking Report',   desc: 'View, filter & export pre-booking records',        roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Settings',             desc: 'User management, permissions, restrictions',       roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
     ],
   },
   {
     group: 'Bed Management',
     items: [
-      { label: 'Toggle Bed Active/Inactive', desc: 'Enable or disable a bed from the Bed List', roles: ['Admin','Receptionist'] },
+      { label: 'Toggle Bed Active/Inactive', desc: 'Enable or disable a bed from the Bed List', roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
       { label: 'Block Room Type Booking',    desc: 'Restrict a room type from being pre-booked', roles: ['Admin'] },
     ],
   },
   {
     group: 'Pre-Booking Actions',
     items: [
-      { label: 'Create Pre-Booking',   desc: 'Reserve an available bed for a patient',          roles: ['Admin','Receptionist'] },
-      { label: 'Cancel Pre-Booking',   desc: 'Cancel a confirmed pre-booking',                  roles: ['Admin','Receptionist'] },
-      { label: 'Mark as Admitted',     desc: 'Confirm patient has been physically admitted',    roles: ['Admin','Receptionist','Nurse'] },
+      { label: 'Create Pre-Booking',   desc: 'Reserve an available bed for a patient',          roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Cancel Pre-Booking',   desc: 'Cancel a confirmed pre-booking',                  roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
+      { label: 'Mark as Admitted',     desc: 'Confirm patient has been physically admitted',    roles: ['Admin','Receptionist','Nurse','Billing','Doctor'] },
     ],
   },
   {
@@ -56,10 +57,10 @@ const FEATURES = [
 
 const ROLE_DESCRIPTIONS = {
   Admin:        'Full system access — manages users, settings, and all operations.',
-  Receptionist: 'Front-desk operations — bed bookings, patient check-in, and reports.',
-  Nurse:        'Ward operations — views patients, marks admissions, and bed status.',
-  Billing:      'Finance view — monitors discharge queue and occupied beds for billing.',
-  Doctor:       'Clinical view — read-only access to current patients and dashboard.',
+  Receptionist: 'Full access — bed bookings, patient check-in, reports, and all pages.',
+  Nurse:        'Full access — views patients, marks admissions, bed status, and all pages.',
+  Billing:      'Full access — discharge queue, occupied beds, reports, and all pages.',
+  Doctor:       'Full access — current patients, dashboard, reports, and all pages.',
 };
 
 const EMPTY_FORM = { username: '', password: '', role: 'Receptionist', branch: 'Main' };
@@ -92,8 +93,16 @@ const Settings = () => {
     return m;
   };
   const PERM_STORAGE_KEY = 'rbm_role_permissions';
+  const PERM_VERSION_KEY = 'rbm_role_permissions_v';
+  const PERM_VERSION     = '3'; // bump this whenever FEATURES changes
   const loadMatrix = () => {
     try {
+      // If saved version doesn't match current, discard and rebuild
+      if (localStorage.getItem(PERM_VERSION_KEY) !== PERM_VERSION) {
+        localStorage.removeItem(PERM_STORAGE_KEY);
+        localStorage.setItem(PERM_VERSION_KEY, PERM_VERSION);
+        return buildDefaultMatrix();
+      }
       const saved = localStorage.getItem(PERM_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
     } catch { /* ignore */ }
@@ -111,19 +120,24 @@ const Settings = () => {
   };
   const savePermissions = () => {
     localStorage.setItem(PERM_STORAGE_KEY, JSON.stringify(permDraft));
+    localStorage.setItem(PERM_VERSION_KEY, PERM_VERSION);
     setPermMatrix(permDraft);
     setPermEditing(false);
     setPermDraft(null);
     setPermSaved(true);
+    // Notify sidebar and routes to re-evaluate permissions
+    window.dispatchEvent(new Event('rbm_permissions_changed'));
     setTimeout(() => setPermSaved(false), 3000);
   };
   const resetToDefaults = () => {
     if (!window.confirm('Reset all permissions to system defaults?')) return;
     const defaults = buildDefaultMatrix();
     localStorage.setItem(PERM_STORAGE_KEY, JSON.stringify(defaults));
+    localStorage.setItem(PERM_VERSION_KEY, PERM_VERSION);
     setPermMatrix(defaults);
     setPermEditing(false);
     setPermDraft(null);
+    window.dispatchEvent(new Event('rbm_permissions_changed'));
   };
   const activeMatrix = permEditing ? permDraft : permMatrix;
 
