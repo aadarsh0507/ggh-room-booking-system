@@ -44,6 +44,6 @@ ENV PORT=5000
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:5000/api/auth || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:5000/api/auth/login || exit 1
 
 CMD ["node", "src/server.js"]

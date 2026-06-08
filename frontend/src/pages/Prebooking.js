@@ -255,36 +255,36 @@ const Prebooking = () => {
         <>
           {/* Filters */}
           <div className="bg-white shadow rounded-xl px-5 py-4 mb-5 flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Room Type</label>
               <select
                 value={filterRT}
                 onChange={e => setFilterRT(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="">All Types</option>
                 {roomTypes.map(rt => <option key={rt} value={rt}>{rt}</option>)}
               </select>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nursing Station</label>
               <select
                 value={filterNS}
                 onChange={e => setFilterNS(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
                 <option value="">All Stations</option>
                 {nurStations.map(ns => <option key={ns} value={ns}>{ns}</option>)}
               </select>
             </div>
-            <div className="flex flex-col gap-1 flex-1 min-w-48">
+            <div className="flex flex-col gap-1 w-full sm:flex-1">
               <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Search</label>
               <input
                 type="text"
                 placeholder="Bed no, room, station…"
                 value={bedSearch}
                 onChange={e => setBedSearch(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
             <div className="flex items-end pb-0.5">
@@ -344,26 +344,26 @@ const Prebooking = () => {
           <div className="bg-white shadow rounded-xl px-5 py-4 mb-4">
             <div className="flex flex-wrap items-end gap-3">
               {/* Date From */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">From Date</label>
                 <input type="date" value={filterDateFrom}
                   onChange={e => setFilterDateFrom(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               {/* Date To */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">To Date</label>
                 <input type="date" value={filterDateTo}
                   onChange={e => setFilterDateTo(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               {/* Status */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
                 <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   <option value="">All Status</option>
                   <option value="Confirmed">Confirmed</option>
@@ -372,10 +372,10 @@ const Prebooking = () => {
                 </select>
               </div>
               {/* Room Type */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Room Type</label>
                 <select value={filterRoomType} onChange={e => setFilterRoomType(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   <option value="">All Types</option>
                   {[...new Set(availBeds.map(b => b.ROOM_TYPE).filter(Boolean))].sort().map(rt =>
@@ -384,10 +384,10 @@ const Prebooking = () => {
                 </select>
               </div>
               {/* Nursing Station */}
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 w-full sm:w-auto">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nursing Station</label>
                 <select value={filterNurStation} onChange={e => setFilterNurStation(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   <option value="">All Stations</option>
                   {[...new Set(availBeds.map(b => b.NUR_STATION).filter(Boolean))].sort().map(ns =>
@@ -410,7 +410,7 @@ const Prebooking = () => {
               >Clear All</button>
 
               {/* Search */}
-              <div className="flex-1 flex flex-col gap-1 min-w-48 self-end">
+              <div className="w-full sm:flex-1 flex flex-col gap-1 self-end">
                 <div className="relative">
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -426,7 +426,7 @@ const Prebooking = () => {
 
           {/* Summary cards */}
           {prebookings.length > 0 && (
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
               {[
                 { label: 'Total',     value: prebookings.length, color: 'bg-blue-50 text-blue-700 border-blue-200' },
                 { label: 'Confirmed', value: summaryConfirmed,   color: 'bg-green-50 text-green-700 border-green-200' },

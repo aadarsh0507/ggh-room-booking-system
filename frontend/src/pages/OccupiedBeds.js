@@ -69,10 +69,10 @@ const OccupiedBeds = () => {
       {!loading && patients.length > 0 && (
         <div className="mb-5">
           {/* Top row: total / patient / bystander */}
-          <div className="grid grid-cols-3 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
             <button
               onClick={() => { setOccByFilter(''); setPage(1); }}
-              className={`rounded-2xl px-5 py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
                 occByFilter === '' ? 'bg-blue-50 border-blue-400' : 'bg-white border-gray-200'
               }`}>
               <p className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-1">Total Occupied Beds</p>
@@ -82,7 +82,7 @@ const OccupiedBeds = () => {
 
             <button
               onClick={() => { setOccByFilter(occByFilter === 'Patient' ? '' : 'Patient'); setPage(1); }}
-              className={`rounded-2xl px-5 py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
                 occByFilter === 'Patient' ? 'bg-green-50 border-green-400' : 'bg-white border-gray-200'
               }`}>
               <div className="flex items-center gap-2 mb-1">
@@ -95,7 +95,7 @@ const OccupiedBeds = () => {
 
             <button
               onClick={() => { setOccByFilter(occByFilter === 'Bystander' ? '' : 'Bystander'); setPage(1); }}
-              className={`rounded-2xl px-5 py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
+              className={`rounded-2xl px-4 py-3 sm:px-5 sm:py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md ${
                 occByFilter === 'Bystander' ? 'bg-amber-50 border-amber-400' : 'bg-white border-gray-200'
               }`}>
               <div className="flex items-center gap-2 mb-1">
@@ -149,68 +149,66 @@ const OccupiedBeds = () => {
       )}
 
       {/* ── Filter bar ── */}
-      <div className="bg-white shadow rounded-xl px-5 py-4 mb-6 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
+      <div className="bg-white shadow rounded-xl px-4 py-4 mb-6 flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Up to Date</label>
           <input
             type="date" value={toDate} max={today()}
             onChange={e => setToDate(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Room Type</label>
           <select value={roomFilter} onChange={e => { setRoomFilter(e.target.value); setPage(1); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">All Room Types</option>
             {roomTypes.map(rt => <option key={rt} value={rt}>{rt}</option>)}
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nursing Station</label>
           <select value={nsFilter} onChange={e => { setNsFilter(e.target.value); setPage(1); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">All Stations</option>
             {nurStations.map(ns => <option key={ns} value={ns}>{ns}</option>)}
           </select>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Occupied By</label>
           <select value={occByFilter} onChange={e => { setOccByFilter(e.target.value); setPage(1); }}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="">All</option>
             <option value="Patient">Patient</option>
             <option value="Bystander">Bystander</option>
           </select>
         </div>
 
-        <button onClick={handleFilter} disabled={loading}
-          className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors self-end">
-          {loading ? 'Loading…' : 'Apply Filter'}
-        </button>
-        <button onClick={handleClear} disabled={loading}
-          className="px-5 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors self-end">
-          Clear All
-        </button>
-
-        <div className="flex-1" />
-
-        <div className="flex flex-col gap-1 self-end">
-          <div className="relative">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-            <input
-              type="text" placeholder="Search patient, bed, doctor…" value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
-              className="pl-9 pr-3 border border-gray-300 rounded-lg py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button onClick={handleFilter} disabled={loading}
+            className="flex-1 sm:flex-none px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            {loading ? 'Loading…' : 'Apply'}
+          </button>
+          <button onClick={handleClear} disabled={loading}
+            className="flex-1 sm:flex-none px-5 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors">
+            Clear
+          </button>
         </div>
-        <span className="text-sm text-gray-400 self-end pb-2">{filtered.length} records</span>
+
+        <div className="relative w-full sm:flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text" placeholder="Search patient, bed, doctor…" value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="pl-9 pr-3 border border-gray-300 rounded-lg py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length} records</span>
       </div>
 
       {error && (
@@ -263,15 +261,15 @@ const OccupiedBeds = () => {
         )}
 
         {!loading && totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm text-gray-500">
-              Page {page} of {totalPages} — showing {paginated.length} of {filtered.length} records
+              Page {page} of {totalPages} — {paginated.length} of {filtered.length} records
             </span>
             <div className="flex gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
             </div>
           </div>
         )}

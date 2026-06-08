@@ -286,10 +286,10 @@ const BookBed = () => {
 
       {/* ── Filters ── */}
       <div className="bg-white shadow-sm border border-gray-100 rounded-2xl px-5 py-4 mb-5 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Room Type</label>
           <select value={filterRT} onChange={e => setFilterRT(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-40">
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
             <option value="">All Types</option>
             {roomTypes.map(rt => (
               <option key={rt} value={rt} disabled={blockedRoomTypes.has(rt)}>
@@ -298,15 +298,15 @@ const BookBed = () => {
             ))}
           </select>
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 w-full sm:w-auto">
           <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Nursing Station</label>
           <select value={filterNS} onChange={e => setFilterNS(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none min-w-40">
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
             <option value="">All Stations</option>
             {nurStations.map(ns => <option key={ns} value={ns}>{ns}</option>)}
           </select>
         </div>
-        <div className="flex flex-col gap-1 flex-1 min-w-52">
+        <div className="flex flex-col gap-1 w-full sm:flex-1">
           <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Search</label>
           <div className="relative">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

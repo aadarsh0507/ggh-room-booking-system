@@ -296,29 +296,31 @@ const Settings = () => {
     <Layout title="Settings">
 
       {/* ── Tab bar ── */}
-      <div className="flex gap-1 mb-6 bg-white shadow rounded-xl p-1 w-fit">
-        {[
-          { key: 'users',        label: 'User Management',      icon: '👥' },
-          { key: 'permissions',  label: 'Role Permissions',     icon: '🔐' },
-          { key: 'restrictions', label: 'Booking Restrictions', icon: '🚫' },
-        ].map(t => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-              tab === t.key ? 'bg-blue-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            <span>{t.icon}</span>{t.label}
-          </button>
-        ))}
+      <div className="mb-6 overflow-x-auto">
+        <div className="flex gap-1 bg-white shadow rounded-xl p-1 w-max min-w-full sm:w-fit sm:min-w-0">
+          {[
+            { key: 'users',        label: 'User Management',      icon: '👥' },
+            { key: 'permissions',  label: 'Role Permissions',     icon: '🔐' },
+            { key: 'restrictions', label: 'Booking Restrictions', icon: '🚫' },
+          ].map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 sm:px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${
+                tab === t.key ? 'bg-blue-600 text-white shadow' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <span>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ══════════════════════ USER MANAGEMENT ═════════════════════════════ */}
       {tab === 'users' && (
         <>
           {/* Toolbar */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <p className="text-sm text-gray-500">{users.filter(u => u.isActive).length} active · {users.filter(u => !u.isActive).length} inactive</p>
             <button
               onClick={() => { setShowAdd(true); setForm(EMPTY_FORM); setFormError(''); }}

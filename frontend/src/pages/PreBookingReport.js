@@ -447,29 +447,29 @@ const PrebookingReport = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* WA log filters */}
           <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-end">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">From</label>
               <input type="date" value={waFrom} onChange={e => setWaFrom(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">To</label>
               <input type="date" value={waTo} onChange={e => setWaTo(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 w-full sm:w-auto">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Status</label>
               <select value={waStatus} onChange={e => setWaStatus(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-400 focus:outline-none">
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-green-400 focus:outline-none">
                 <option value="">All</option>
                 <option value="Sent">Sent</option>
                 <option value="Failed">Failed</option>
               </select>
             </div>
-            <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+            <div className="flex flex-col gap-1 w-full sm:flex-1">
               <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Search</label>
               <input type="text" placeholder="Patient, phone, bed…" value={waSearch} onChange={e => setWaSearch(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-green-400 focus:outline-none"/>
             </div>
             <button onClick={() => loadWaLogs(1)}
               className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors">
@@ -597,46 +597,46 @@ const PrebookingReport = () => {
       {/* ── Filters ── */}
       <div className="bg-white shadow-sm border border-gray-100 rounded-2xl px-5 py-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">From Date</label>
             <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">To Date</label>
             <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"/>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Status</label>
             <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">All Status</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Cancelled">Cancelled</option>
               <option value="Admitted">Admitted</option>
             </select>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Room Type</label>
             <select value={filterRoomType} onChange={e => setFilterRoomType(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">All Types</option>
               {reportRoomTypes.map(rt => <option key={rt} value={rt}>{rt}</option>)}
             </select>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Nursing Station</label>
             <select value={filterNurStation} onChange={e => setFilterNurStation(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">All Stations</option>
               {reportNurStations.map(ns => <option key={ns} value={ns}>{ns}</option>)}
             </select>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Priority</label>
             <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
-              className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
               <option value="">All Priorities</option>
               {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
@@ -649,7 +649,7 @@ const PrebookingReport = () => {
             className="px-5 py-2 bg-gray-100 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-colors self-end">
             Clear
           </button>
-          <div className="flex-1 flex flex-col gap-1 min-w-52 self-end">
+          <div className="w-full sm:flex-1 flex flex-col gap-1 self-end">
             <div className="relative">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>

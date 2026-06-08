@@ -47,7 +47,7 @@ const BedList = () => {
   return (
     <Layout title="Bed List">
       {/* Toolbar */}
-      <div className="bg-white shadow rounded-xl px-5 py-4 mb-6 flex flex-wrap items-center gap-3">
+      <div className="bg-white shadow rounded-xl px-4 py-4 mb-6 flex flex-wrap items-center gap-3">
         {/* Status toggle */}
         <div className="flex rounded-lg border border-gray-300 overflow-hidden text-sm">
           {['Active', 'Inactive', 'All'].map(s => (
@@ -74,21 +74,23 @@ const BedList = () => {
         <select
           value={roomType}
           onChange={e => { setRoomType(e.target.value); setPage(1); }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="flex-1 min-w-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         >
           <option value="">All Room Types</option>
           {roomTypes.map(rt => <option key={rt} value={rt}>{rt}</option>)}
         </select>
 
-        <div className="flex-1" />
-        <span className="text-sm text-gray-400">{filtered.length} records</span>
-        <input
-          type="text"
-          placeholder="Search bed, room, station…"
-          value={search}
-          onChange={e => { setSearch(e.target.value); setPage(1); }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        {/* Search — full width on mobile */}
+        <div className="w-full sm:w-auto sm:flex-1 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search bed, room, station…"
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1); }}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length} records</span>
+        </div>
       </div>
 
       {error && (
@@ -144,13 +146,13 @@ const BedList = () => {
         )}
 
         {!loading && totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm text-gray-500">Page {page} of {totalPages}</span>
             <div className="flex gap-2">
               <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
               <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
             </div>
           </div>
         )}

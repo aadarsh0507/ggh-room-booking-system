@@ -113,7 +113,7 @@ const DischargeInitiated = () => {
     <Layout title="Discharge Initiated">
 
       {/* ── KPI summary ── */}
-      <div className="grid grid-cols-3 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         {[
           { label: 'Discharge Requested', value: countReq,     meta: STATUS_META['Discharge Requested'], key: 'Discharge Requested' },
           { label: 'Discharge Entered',   value: countEntered, meta: STATUS_META['Discharge Entered'],   key: 'Discharge Entered'   },
@@ -121,14 +121,14 @@ const DischargeInitiated = () => {
         ].map(c => (
           <button key={c.key}
             onClick={() => setStatusFilter(statusFilter === c.key ? '' : c.key)}
-            className="rounded-2xl px-5 py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md"
+            className="rounded-2xl px-4 py-3 sm:px-5 sm:py-4 text-left border-2 transition-all hover:-translate-y-0.5 hover:shadow-md"
             style={{
               backgroundColor: statusFilter === c.key ? c.meta.bg : '#fff',
               borderColor: statusFilter === c.key ? c.meta.border : '#e5e7eb',
             }}>
             <div className="flex items-center gap-2 mb-1">
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.meta.dot }}/>
-              <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{c.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-gray-400 truncate">{c.label}</p>
             </div>
             <p className="text-3xl font-black" style={{ color: c.meta.color }}>{c.value}</p>
           </button>
@@ -214,40 +214,41 @@ const DischargeInitiated = () => {
 
       {/* ── Toolbar ── */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 min-w-48">
+        <div className="relative w-full sm:flex-1 sm:min-w-0">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
           </svg>
-          <input type="text" placeholder="Search patient, bed, doctor, department…"
+          <input type="text" placeholder="Search patient, bed, doctor…"
             value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
         </div>
 
         <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          className="w-full sm:w-auto border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">All Room Types</option>
           {roomTypes.map(rt => <option key={rt} value={rt}>{rt}</option>)}
         </select>
 
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          className="w-full sm:w-auto border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">All Statuses</option>
           <option value="Discharge Requested">Discharge Requested</option>
           <option value="Discharge Entered">Discharge Entered</option>
           <option value="Billed">Billed</option>
         </select>
 
-        <button onClick={() => load(fromDate, toDate)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          Refresh
-        </button>
-
-        <span className="text-sm text-gray-500 ml-auto font-semibold">
-          {loading ? '…' : `${filtered.length} patient${filtered.length !== 1 ? 's' : ''}`}
-        </span>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button onClick={() => load(fromDate, toDate)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Refresh
+          </button>
+          <span className="text-sm text-gray-500 font-semibold whitespace-nowrap">
+            {loading ? '…' : `${filtered.length} patient${filtered.length !== 1 ? 's' : ''}`}
+          </span>
+        </div>
       </div>
 
       {error && (
