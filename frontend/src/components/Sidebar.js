@@ -82,11 +82,10 @@ const NAV = [
   },
 ];
 
-// onClose is called when a nav link is clicked on mobile (to close the drawer)
-const Sidebar = ({ onClose }) => (
-  <aside className="w-56 min-h-screen bg-gray-900 flex flex-col flex-shrink-0">
+const SidebarContent = ({ onClose }) => (
+  <div className="w-56 h-full bg-gray-900 flex flex-col">
     {/* Brand */}
-    <div className="px-5 py-5 border-b border-gray-700 flex items-center justify-between">
+    <div className="px-5 py-5 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-2">
         <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -99,11 +98,10 @@ const Sidebar = ({ onClose }) => (
           <p className="text-gray-400 text-xs leading-tight">Room Booking</p>
         </div>
       </div>
-      {/* Close button — only visible on mobile */}
       {onClose && (
         <button
           onClick={onClose}
-          className="lg:hidden text-gray-400 hover:text-white p-1 rounded"
+          className="text-gray-400 hover:text-white p-1 rounded"
           aria-label="Close menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -136,10 +134,10 @@ const Sidebar = ({ onClose }) => (
     </nav>
 
     {/* Footer */}
-    <div className="px-5 py-4 border-t border-gray-700">
+    <div className="px-5 py-4 border-t border-gray-700 flex-shrink-0">
       <p className="text-xs text-gray-500">Live from HIS</p>
     </div>
-  </aside>
+  </div>
 );
 
-export default Sidebar;
+export default SidebarContent;

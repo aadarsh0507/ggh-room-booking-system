@@ -58,44 +58,36 @@ const Layout = ({ title, children }) => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
 
-      {/* ── Mobile sidebar backdrop ── */}
+      {/* ── Desktop sidebar — static in flex row ── */}
+      <div className="hidden lg:flex lg:flex-shrink-0">
+        <Sidebar />
+      </div>
+
+      {/* ── Mobile: backdrop + slide-in drawer ── */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-
-      {/* ── Sidebar ──
-           Mobile: fixed drawer (out of flow), slides in/out.
-           Desktop (lg+): static, occupies w-56 in the flex row.
-           The wrapping div is w-0 on mobile (no space) and w-56 on lg+.
-      -->*/}
-      <div className="hidden lg:block w-56 flex-shrink-0">
-        <Sidebar />
-      </div>
-
-      {/* Mobile drawer — rendered in a portal-like fixed layer, never affects layout */}
-      <div className={`
-        fixed inset-y-0 left-0 z-30
-        transform transition-transform duration-200 ease-in-out
-        lg:hidden
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      <div
+        className={`fixed inset-y-0 left-0 z-30 lg:hidden transform transition-transform duration-200 ease-in-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <Sidebar onClose={() => setSidebarOpen(false)} />
       </div>
 
-      {/* ── Main content — always fills remaining width, no offset needed ── */}
-      <div className="flex-1 flex flex-col min-w-0 w-full overflow-hidden">
+      {/* ── Main column ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* Topbar */}
-        <header className="bg-white shadow-sm flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+        <header className="flex-shrink-0 bg-white shadow-sm flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4">
 
-          {/* Left: hamburger (mobile) + title */}
+          {/* Left: hamburger + title */}
           <div className="flex items-center gap-3 min-w-0">
-            {/* Hamburger — hidden on lg+ */}
             <button
               onClick={() => setSidebarOpen(true)}
               className="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors flex-shrink-0"
@@ -112,7 +104,6 @@ const Layout = ({ title, children }) => {
           <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <span className="hidden sm:inline text-xs bg-green-50 text-green-600 px-2 py-1 rounded-full font-medium">● Live</span>
 
-            {/* User avatar + name (name hidden on very small screens) */}
             <div className="flex items-center gap-2 sm:gap-3">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-semibold text-gray-800 leading-tight">{user.username || 'User'}</p>
@@ -124,7 +115,6 @@ const Layout = ({ title, children }) => {
                 </span>
               </div>
 
-              {/* Change password — icon-only on mobile, icon+label on sm+ */}
               <button
                 onClick={openChangePwd}
                 title="Change Password"
@@ -136,7 +126,6 @@ const Layout = ({ title, children }) => {
                 <span className="hidden sm:inline">Password</span>
               </button>
 
-              {/* Logout — icon-only on mobile, icon+label on sm+ */}
               <button
                 onClick={handleLogout}
                 title="Logout"
@@ -152,7 +141,7 @@ const Layout = ({ title, children }) => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-3 sm:p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6">
           {children}
         </main>
       </div>
