@@ -5,6 +5,7 @@ import api from '../services/api';
 import * as XLSX from 'xlsx';
 
 const ROWS_PER_PAGE = 15;
+const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const STATUS_STYLES = {
   Confirmed: 'bg-green-100 text-green-700 border-green-200',
@@ -114,8 +115,8 @@ const PrebookingReport = () => {
   };
 
   const [filterStatus,     setFilterStatus]     = useState('');
-  const [filterDateFrom,   setFilterDateFrom]   = useState('');
-  const [filterDateTo,     setFilterDateTo]     = useState('');
+  const [filterDateFrom,   setFilterDateFrom]   = useState(todayStr());
+  const [filterDateTo,     setFilterDateTo]     = useState(todayStr());
   const [filterRoomType,   setFilterRoomType]   = useState('');
   const [filterNurStation, setFilterNurStation] = useState('');
   const [filterPriority,   setFilterPriority]   = useState('');
@@ -265,7 +266,7 @@ const PrebookingReport = () => {
   };
 
   const clearAll = () => {
-    setFilterDateFrom(''); setFilterDateTo(''); setFilterStatus('');
+    setFilterDateFrom(todayStr()); setFilterDateTo(todayStr()); setFilterStatus('');
     setFilterRoomType(''); setFilterNurStation(''); setFilterPriority('');
     setListSearch(''); setListPage(1);
   };

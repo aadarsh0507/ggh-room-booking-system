@@ -50,10 +50,14 @@ const BookBed = () => {
   const [availLoading, setAvailLoading] = useState(false);
   const [availError, setAvailError]     = useState('');
 
-  const [filterRT, setFilterRT]     = useState(location.state?.roomType || '');
+  // Suggested bed passed from Available Beds page (discharge patient)
+  const suggestedBed = location.state?.suggestedBed || null;
+
+  const [filterRT, setFilterRT]     = useState(suggestedBed?.roomType || location.state?.roomType || '');
   const [filterNS, setFilterNS]     = useState('');
   const [filterShow, setFilterShow] = useState('available'); // 'all' | 'available'
   const [bedSearch, setBedSearch]   = useState('');
+  const [suggDismissed, setSuggDismissed] = useState(false);
 
   const [showForm, setShowForm]     = useState(false);
   const [form, setForm]             = useState(EMPTY_FORM);
@@ -67,6 +71,7 @@ const BookBed = () => {
 
   const [successBed, setSuccessBed]         = useState('');
   const [displacedInfo, setDisplacedInfo]   = useState(null);
+  const [cardPreview, setCardPreview]       = useState(null); // bed object being previewed
 
   const loadBeds = useCallback((date) => {
     setAvailLoading(true);
@@ -81,6 +86,24 @@ const BookBed = () => {
   }, []);
 
   useEffect(() => { loadBeds(forDate); }, [forDate, loadBeds]);
+
+  // Close card preview on Escape key
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setCardPreview(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Auto-highlight the suggested bed card when beds load
+  const [autoOpened, setAutoOpened] = useState(false);
+  useEffect(() => {
+    if (!suggestedBed || suggDismissed || autoOpened || availLoading || allBeds.length === 0) return;
+    const match = allBeds.find(b => b.BED_NO === suggestedBed.bedNo && b.AVAILABLE);
+    if (match) {
+      setAutoOpened(true);
+      setCardPreview(match); // open the card popup automatically
+    }
+  }, [allBeds, availLoading]); // eslint-disable-line
 
   const availableBeds = allBeds.filter(b => b.AVAILABLE);
   const occupiedBeds  = allBeds.filter(b => b.OCCUPIED);
@@ -105,8 +128,22 @@ const BookBed = () => {
 
   const handleSelectBed = (bed) => {
     if (!bed.AVAILABLE) return;
-    setForm({ ...EMPTY_FORM, bedNo: bed.BED_NO, roomType: bed.ROOM_TYPE, nurStation: bed.NUR_STATION, roomNo: bed.ROOM_NO });
-    setPtNoInput(''); setPtLookError(''); setPtFound(false); setFormError('');
+    const isSugg = suggestedBed && !suggDismissed && bed.BED_NO === suggestedBed.bedNo;
+    setForm({
+      ...EMPTY_FORM,
+      bedNo:       bed.BED_NO,
+      roomType:    bed.ROOM_TYPE,
+      nurStation:  bed.NUR_STATION,
+      roomNo:      bed.ROOM_NO || '',
+      ...(isSugg ? {
+        patientName: suggestedBed.ptName || '',
+        patientId:   suggestedBed.ptNo   || '',
+        doctorName:  suggestedBed.doctor  || '',
+      } : {}),
+    });
+    if (isSugg && suggestedBed.ptNo) setPtNoInput(suggestedBed.ptNo);
+    else setPtNoInput('');
+    setPtLookError(''); setPtFound(false); setFormError('');
     setShowForm(true);
   };
 
@@ -266,6 +303,62 @@ const BookBed = () => {
         </div>
       )}
 
+      {/* ── Suggested Bed Banner (from Available Beds page) ── */}
+      {suggestedBed && !suggDismissed && (
+        <div className="mb-4 bg-green-50 border-2 border-green-400 rounded-2xl px-4 py-4 flex flex-wrap items-start gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-green-800">
+                Suggested Bed from Discharge Queue
+                {suggestedBed.isBilled && (
+                  <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-bold">Billed & Ready</span>
+                )}
+              </p>
+              <p className="text-xs text-green-700 mt-0.5">
+                Bed <span className="font-mono font-black">{suggestedBed.bedNo}</span>
+                {' · '}<span className="font-semibold">{suggestedBed.roomType}</span>
+                {' · '}{suggestedBed.nurStation}
+              </p>
+              {suggestedBed.ptName && (
+                <p className="text-xs text-green-600 mt-0.5">
+                  Currently occupied by <strong>{suggestedBed.ptName}</strong>
+                  {suggestedBed.ptNo && <span className="font-mono ml-1 text-green-500">({suggestedBed.ptNo})</span>}
+                  {suggestedBed.doctor && <span> · Dr. {suggestedBed.doctor}</span>}
+                  {' — '}<span className="font-semibold">{suggestedBed.discStatus}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => {
+                const match = allBeds.find(b => b.BED_NO === suggestedBed.bedNo && b.AVAILABLE);
+                if (match) {
+                  setCardPreview(match);
+                } else {
+                  setBedSearch(suggestedBed.bedNo);
+                  setFilterShow('all');
+                }
+              }}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm whitespace-nowrap"
+            >
+              Book This Bed
+            </button>
+            <button onClick={() => setSuggDismissed(true)}
+              className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-100 rounded-lg transition-colors" title="Dismiss">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Success toast ── */}
       {successBed && (
         <div className={`mb-4 border px-4 py-3 rounded-xl flex flex-col gap-1 text-sm font-medium ${displacedInfo ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-green-50 border-green-200 text-green-800'}`}>
@@ -351,11 +444,17 @@ const BookBed = () => {
           </p>
         </div>
       ) : (
+        <>
+          {/* Transparent overlay to close card preview on outside click */}
+          {cardPreview && (
+            <div className="fixed inset-0 z-30" onClick={() => setCardPreview(null)} />
+          )}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
           {filteredBeds.map(bed => {
-            const isAvailable = bed.AVAILABLE;
-            const isOccupied  = bed.OCCUPIED;
-            const isPrebooked = bed.PREBOOKED && !bed.OCCUPIED;
+            const isAvailable  = bed.AVAILABLE;
+            const isOccupied   = bed.OCCUPIED;
+            const isPrebooked  = bed.PREBOOKED && !bed.OCCUPIED;
+            const isSuggested  = suggestedBed && !suggDismissed && bed.BED_NO === suggestedBed.bedNo;
 
             let borderColor = '#bbf7d0'; // green
             let dotColor    = '#4ade80';
@@ -363,7 +462,9 @@ const BookBed = () => {
             let statusColor = '#16a34a';
             let subText     = null;
 
-            if (isOccupied) {
+            if (isSuggested && isAvailable) {
+              borderColor = '#4ade80';
+            } else if (isOccupied) {
               borderColor = '#fecaca'; dotColor = '#f87171';
               statusLabel = 'Occupied'; statusColor = '#dc2626';
             } else if (isPrebooked) {
@@ -373,37 +474,118 @@ const BookBed = () => {
               subText = `${bed.PREBOOKED_FOR || 'Another patient'}${d ? ` · ${d}` : ''}`;
             }
 
+            const isCardPreviewed = cardPreview?.BED_NO === bed.BED_NO;
+
             return (
-              <div
-                key={bed.BED_NO}
-                onClick={() => isAvailable && handleSelectBed(bed)}
-                className={`bg-white border-2 rounded-2xl p-4 text-left transition-all ${
-                  isAvailable
-                    ? 'cursor-pointer hover:border-blue-400 hover:shadow-lg hover:-translate-y-0.5 group'
-                    : 'cursor-not-allowed opacity-70'
-                }`}
-                style={{ borderColor }}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: statusColor }}>
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dotColor, boxShadow: isAvailable ? `0 0 0 3px ${dotColor}33` : 'none' }}/>
-                    {statusLabel}
-                  </span>
-                  {isAvailable && (
-                    <span className="text-xs text-gray-400 group-hover:text-blue-500 font-bold transition-colors">Book →</span>
+              <div key={bed.BED_NO} className="relative">
+                <div
+                  onClick={() => isAvailable ? setCardPreview(bed) : null}
+                  className={`border-2 rounded-2xl p-4 text-left transition-all ${
+                    isSuggested && isAvailable
+                      ? 'bg-green-50 cursor-pointer shadow-lg ring-2 ring-green-400 ring-offset-1 hover:-translate-y-0.5 group'
+                      : isAvailable
+                      ? 'bg-white cursor-pointer hover:border-blue-400 hover:shadow-lg hover:-translate-y-0.5 group'
+                      : 'bg-white cursor-not-allowed opacity-70'
+                  } ${isCardPreviewed ? 'ring-2 ring-blue-400 ring-offset-1' : ''}`}
+                  style={{ borderColor }}
+                >
+                  {isSuggested && isAvailable && (
+                    <div className="text-xs font-black text-green-700 bg-green-200 rounded-lg px-2 py-0.5 mb-2 text-center tracking-wide">
+                      ★ SUGGESTED
+                    </div>
                   )}
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: statusColor }}>
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dotColor, boxShadow: isAvailable ? `0 0 0 3px ${dotColor}33` : 'none' }}/>
+                      {statusLabel}
+                    </span>
+                    {isAvailable && (
+                      <span className={`text-xs font-bold transition-colors ${isSuggested ? 'text-green-600' : 'text-gray-400 group-hover:text-blue-500'}`}>Book →</span>
+                    )}
+                  </div>
+                  <p className="text-xl font-black text-gray-800 leading-tight mb-1">{bed.BED_NO}</p>
+                  <p className="text-xs text-blue-600 font-semibold truncate mb-2">{bed.ROOM_TYPE}</p>
+                  <div className="space-y-0.5 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-500 truncate">{bed.NUR_STATION}</p>
+                    <p className="text-xs text-gray-400 truncate">Room: {bed.ROOM_NO}</p>
+                    {subText && <p className="text-xs text-amber-600 truncate mt-1 font-medium">{subText}</p>}
+                  </div>
                 </div>
-                <p className="text-xl font-black text-gray-800 leading-tight mb-1">{bed.BED_NO}</p>
-                <p className="text-xs text-blue-600 font-semibold truncate mb-2">{bed.ROOM_TYPE}</p>
-                <div className="space-y-0.5 pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 truncate">{bed.NUR_STATION}</p>
-                  <p className="text-xs text-gray-400 truncate">Room: {bed.ROOM_NO}</p>
-                  {subText && <p className="text-xs text-amber-600 truncate mt-1 font-medium">{subText}</p>}
-                </div>
+
+                {/* ── Card quick-preview popup ── */}
+                {isCardPreviewed && (() => {
+                  const sb = suggestedBed && !suggDismissed && bed.BED_NO === suggestedBed.bedNo ? suggestedBed : null;
+                  return (
+                    <div className="absolute z-40 left-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+                      onClick={e => e.stopPropagation()}>
+                      {/* Header */}
+                      <div className={`px-4 py-3 flex items-center justify-between ${sb ? 'bg-green-600' : 'bg-blue-600'}`}>
+                        <div>
+                          <p className="text-white font-black text-sm">{bed.BED_NO}</p>
+                          <p className="text-white text-opacity-80 text-xs">{bed.ROOM_TYPE} · {bed.NUR_STATION}</p>
+                        </div>
+                        <button onClick={() => setCardPreview(null)}
+                          className="text-white text-opacity-70 hover:text-opacity-100 p-1 rounded-lg hover:bg-white hover:bg-opacity-20">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+
+                      <div className="p-4 space-y-3">
+                        {/* Bed details */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-gray-50 rounded-xl px-3 py-2">
+                            <p className="text-gray-400 font-semibold">Room No</p>
+                            <p className="font-bold text-gray-700 mt-0.5">{bed.ROOM_NO || '—'}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-xl px-3 py-2">
+                            <p className="text-gray-400 font-semibold">Status</p>
+                            <p className="font-bold text-green-600 mt-0.5">Available</p>
+                          </div>
+                        </div>
+
+                        {/* Discharge suggestion info */}
+                        {sb && (
+                          <div className="bg-green-50 border border-green-200 rounded-xl px-3 py-2.5 text-xs">
+                            <p className="font-black text-green-800 mb-1.5 flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              </svg>
+                              Discharge Queue — {sb.isBilled ? 'Billed & Ready' : sb.discStatus}
+                            </p>
+                            <p className="text-green-700 font-semibold">{sb.ptName}</p>
+                            {sb.ptNo && <p className="font-mono text-green-500">{sb.ptNo}</p>}
+                            {sb.doctor && <p className="text-green-600 mt-0.5">Dr. {sb.doctor}</p>}
+                          </div>
+                        )}
+
+                        {/* Date */}
+                        <div className="text-xs text-gray-500 bg-blue-50 rounded-xl px-3 py-2">
+                          <span className="font-semibold text-blue-700">Booking for:</span> {dateLabel}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => { setCardPreview(null); handleSelectBed(bed); }}
+                            className={`flex-1 py-2.5 rounded-xl text-sm font-bold text-white transition-colors shadow-sm ${sb ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                            {sb ? 'Book This Bed' : 'Proceed to Book'}
+                          </button>
+                          <button onClick={() => setCardPreview(null)}
+                            className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl text-sm font-semibold transition-colors">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
         </div>
+        </>
       )}
 
       {/* ══════════════════════ BOOKING FORM MODAL ════════════════════════════ */}
@@ -436,6 +618,23 @@ const BookBed = () => {
                   <p className="font-bold text-gray-800 mt-0.5">{dateLabel}</p>
                 </div>
               </div>
+
+              {/* Discharge suggestion notice */}
+              {suggestedBed && !suggDismissed && suggestedBed.bedNo === form.bedNo && (
+                <div className="bg-green-50 border border-green-300 rounded-xl px-3 py-2.5 text-xs text-green-800 flex items-start gap-2">
+                  <svg className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>
+                    This bed is from the <strong>discharge queue</strong> — currently occupied by{' '}
+                    <strong>{suggestedBed.ptName || 'a patient'}</strong> with status{' '}
+                    <strong>{suggestedBed.discStatus}</strong>.
+                    {suggestedBed.isBilled
+                      ? ' The bed is billed and ready for a new admission.'
+                      : ' The current patient is still in the discharge process — confirm availability before finalising.'}
+                  </span>
+                </div>
+              )}
 
               {/* Note about window */}
               <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-700">
