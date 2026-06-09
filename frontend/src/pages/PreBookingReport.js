@@ -116,7 +116,7 @@ const PrebookingReport = () => {
 
   const [filterStatus,     setFilterStatus]     = useState('');
   const [filterDateFrom,   setFilterDateFrom]   = useState(todayStr());
-  const [filterDateTo,     setFilterDateTo]     = useState(todayStr());
+  const [filterDateTo,     setFilterDateTo]     = useState('');
   const [filterRoomType,   setFilterRoomType]   = useState('');
   const [filterNurStation, setFilterNurStation] = useState('');
   const [filterPriority,   setFilterPriority]   = useState('');
@@ -268,7 +268,7 @@ const PrebookingReport = () => {
   };
 
   const clearAll = () => {
-    setFilterDateFrom(todayStr()); setFilterDateTo(todayStr()); setFilterStatus('');
+    setFilterDateFrom(todayStr()); setFilterDateTo(''); setFilterStatus('');
     setFilterRoomType(''); setFilterNurStation(''); setFilterPriority('');
     setListSearch(''); setListPage(1);
   };
@@ -592,10 +592,23 @@ const PrebookingReport = () => {
           <button
             key={c.label}
             onClick={() => {
+              const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
               setFilterStatus(c.filter);
-              if (c.label === 'Upcoming') {
-                setFilterDateFrom(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-                setFilterDateTo('');
+              if (c.label === 'Total') {
+                // All from today onwards — no end limit
+                setFilterDateFrom(todayStr()); setFilterDateTo('');
+              } else if (c.label === 'Confirmed') {
+                // Confirmed from today onwards
+                setFilterDateFrom(todayStr()); setFilterDateTo('');
+              } else if (c.label === 'Admitted') {
+                // Admitted — today only (already admitted today)
+                setFilterDateFrom(todayStr()); setFilterDateTo(todayStr());
+              } else if (c.label === 'Cancelled') {
+                // Cancelled — today only
+                setFilterDateFrom(todayStr()); setFilterDateTo(todayStr());
+              } else if (c.label === 'Upcoming') {
+                // Future bookings only — from tomorrow, no end limit
+                setFilterDateFrom(tomorrow); setFilterDateTo('');
               }
               setListPage(1);
             }}
@@ -603,13 +616,40 @@ const PrebookingReport = () => {
           >
             <p className="text-xs font-semibold text-white text-opacity-80 uppercase tracking-wide">{c.label}</p>
             <p className="text-3xl font-black mt-1">{c.value}</p>
-            {c.label === 'Upcoming' && <p className="text-xs text-white text-opacity-60 mt-0.5">Future dates</p>}
+            {c.label === 'Upcoming'  && <p className="text-xs text-white text-opacity-60 mt-0.5">Future dates</p>}
+            {c.label === 'Confirmed' && <p className="text-xs text-white text-opacity-60 mt-0.5">Today onwards</p>}
+            {c.label === 'Total'     && <p className="text-xs text-white text-opacity-60 mt-0.5">Today onwards</p>}
           </button>
         ))}
       </div>
 
       {/* ── Filters ── */}
       <div className="bg-white shadow-sm border border-gray-100 rounded-2xl px-5 py-4 mb-4">
+
+        {/* Quick date shortcuts */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {[
+            { label: 'Today',      from: todayStr(), to: todayStr() },
+            { label: 'Tomorrow',   from: (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })(), to: (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })() },
+            { label: 'This Week',  from: (() => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return d.toISOString().slice(0,10); })(), to: (() => { const d = new Date(); d.setDate(d.getDate() + (6 - d.getDay())); return d.toISOString().slice(0,10); })() },
+            { label: 'This Month', from: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10); })(), to: (() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10); })() },
+            { label: 'All',        from: '', to: '' },
+          ].map(q => {
+            const isActive = filterDateFrom === q.from && filterDateTo === q.to;
+            return (
+              <button key={q.label}
+                onClick={() => { setFilterDateFrom(q.from); setFilterDateTo(q.to); setListPage(1); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700'
+                }`}>
+                {q.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1 w-full sm:w-auto">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">From Date</label>
