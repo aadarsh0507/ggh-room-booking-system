@@ -235,6 +235,8 @@ const PrebookingReport = () => {
   const summaryConfirmed = prebookings.filter(b => b.status === 'Confirmed').length;
   const summaryCancelled = prebookings.filter(b => b.status === 'Cancelled').length;
   const summaryAdmitted  = prebookings.filter(b => b.status === 'Admitted').length;
+  const todayDate        = new Date().toISOString().slice(0, 10);
+  const summaryUpcoming  = prebookings.filter(b => b.status === 'Confirmed' && String(b.bookedDate).slice(0, 10) > todayDate).length;
 
   // Priority alert counts — only Confirmed bookings
   const confirmedOnly = prebookings.filter(b => b.status === 'Confirmed');
@@ -273,7 +275,7 @@ const PrebookingReport = () => {
 
   // ── Export helpers ────────────────────────────────────────────────────────
   const exportCSV = () => {
-    const headers = ['Patient ID','Patient','Mobile','Bed','Room Type','Doctor','Notes','Insurance','Insurance Provider','Policy No','Priority','Booked By','Booked Date','Advance Collected','Advance Amount','HIS Live Bed','HIS Live Room','Status','Cancelled By','Admitted By'];
+    const headers = ['Patient ID','Patient','Mobile','Bed No','Room Type','Doctor','Notes','Insurance','Insurance Provider','Policy No','Priority','Booked By','Bed Booked Date','Booked At (System)','Advance Collected','Advance Amount','Actual Bed (HIS)','Actual Room (HIS)','Status','Cancelled By','Admitted By'];
     const rows = filteredList.map((b) => [
       b.patientId || '',
       b.patientName || '',
@@ -287,7 +289,8 @@ const PrebookingReport = () => {
       b.insurancePolicyNo || '',
       b.priority || '',
       b.bookedUserName || b.bookedBy || 'System',
-      b.bookedDate ? String(b.bookedDate).slice(0,10) : '',
+      b.bookedDate ? String(b.bookedDate).slice(0, 10) : '',
+      b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : '',
       b.advanceCollected ? 'Yes' : 'No',
       b.advanceAmount || '',
       b.hisBed || '',
@@ -317,7 +320,7 @@ const PrebookingReport = () => {
       { wch: 15 }, // Policy No
       { wch: 12 }, // Priority
       { wch: 15 }, // Booked By
-      { wch: 12 }, // Booked Date
+      { wch: 12 }, // Bed Booked Date
       { wch: 15 }, // Advance Collected
       { wch: 15 }, // Advance Amount
       { wch: 15 }, // HIS Live Bed
@@ -350,7 +353,8 @@ const PrebookingReport = () => {
         <td style="font-size:10px">${b.insurancePolicyNo||'—'}</td>
         <td><span style="background:${PRIORITY_META[b.priority]?.bg||'#eff6ff'};color:${PRIORITY_META[b.priority]?.color||'#2563eb'};padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px">${b.priority||''}</span></td>
         <td style="font-size:10px">${b.bookedUserName||b.bookedBy||'System'}</td>
-        <td>${b.bookedDate?String(b.bookedDate).slice(0,10):''}</td>
+        <td style="font-weight:700">${b.bookedDate ? String(b.bookedDate).slice(0,10) : '—'}</td>
+        <td style="font-size:10px;color:#374151">${b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}) : '—'}</td>
         <td>${b.advanceCollected?`<span style="color:#16a34a;font-weight:700">✓ ₹${Number(b.advanceAmount||0).toLocaleString('en-IN')}</span>`:'—'}</td>
         <td style="font-weight:700;color:#059669">${b.hisBed||'—'}</td>
         <td>${b.hisRoom||'—'}</td>
@@ -374,7 +378,7 @@ const PrebookingReport = () => {
       <p>Generated: ${new Date().toLocaleString('en-IN')} &nbsp;|&nbsp; Total: ${filteredList.length} records</p>
       <table>
         <thead><tr>
-          <th>Patient</th><th>Patient ID</th><th>Mobile</th><th>Bed</th><th>Room</th><th>Doctor</th><th>Notes</th><th>Insurance</th><th>Policy</th><th>Priority</th><th>Booked By</th><th>Date</th><th>Advance</th><th>HIS Live Bed</th><th>HIS Live Room</th><th>HIS Admission</th><th>Status</th>
+          <th>Patient</th><th>Patient ID</th><th>Mobile</th><th>Bed No</th><th>Room Type</th><th>Doctor</th><th>Notes</th><th>Insurance</th><th>Policy No</th><th>Priority</th><th>Booked By</th><th>Bed Booked Date</th><th>Booked At (System)</th><th>Advance</th><th>Actual Bed (HIS)</th><th>Actual Room (HIS)</th><th>Admitted At (HIS)</th><th>Status</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -577,20 +581,29 @@ const PrebookingReport = () => {
       )}
 
       {/* ── Summary KPI cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
         {[
-          { label: 'Total',     value: summaryTotal,     gradient: 'from-slate-600 to-slate-800', filter: '' },
+          { label: 'Total',     value: summaryTotal,     gradient: 'from-slate-600 to-slate-800',     filter: '' },
           { label: 'Confirmed', value: summaryConfirmed, gradient: 'from-emerald-500 to-emerald-700', filter: 'Confirmed' },
-          { label: 'Admitted',  value: summaryAdmitted,  gradient: 'from-blue-500 to-indigo-700', filter: 'Admitted' },
-          { label: 'Cancelled', value: summaryCancelled, gradient: 'from-red-500 to-rose-700', filter: 'Cancelled' },
+          { label: 'Admitted',  value: summaryAdmitted,  gradient: 'from-blue-500 to-indigo-700',     filter: 'Admitted' },
+          { label: 'Cancelled', value: summaryCancelled, gradient: 'from-red-500 to-rose-700',        filter: 'Cancelled' },
+          { label: 'Upcoming',  value: summaryUpcoming,  gradient: 'from-violet-500 to-purple-700',   filter: 'Confirmed' },
         ].map(c => (
           <button
             key={c.label}
-            onClick={() => { setFilterStatus(c.filter); setListPage(1); }}
+            onClick={() => {
+              setFilterStatus(c.filter);
+              if (c.label === 'Upcoming') {
+                setFilterDateFrom(new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+                setFilterDateTo('');
+              }
+              setListPage(1);
+            }}
             className={`bg-gradient-to-br ${c.gradient} rounded-2xl px-5 py-4 text-left text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg`}
           >
             <p className="text-xs font-semibold text-white text-opacity-80 uppercase tracking-wide">{c.label}</p>
             <p className="text-3xl font-black mt-1">{c.value}</p>
+            {c.label === 'Upcoming' && <p className="text-xs text-white text-opacity-60 mt-0.5">Future dates</p>}
           </button>
         ))}
       </div>
@@ -678,7 +691,7 @@ const PrebookingReport = () => {
             <table className="min-w-full divide-y divide-gray-100 text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  {['Patient','Patient ID','Mobile','Bed','Doctor','Notes','Insurance','Priority','Booked By','Date','Advance','HIS Live Bed','HIS Live Room','HIS Admission','Status','Actions'].map(h => (
+                  {['Patient','Patient ID','Mobile','Bed No','Doctor','Notes','Insurance','Priority','Booked By','Bed Booked Date','Booked At (System)','Advance','Actual Bed (HIS)','Actual Room (HIS)','Admitted At (HIS)','Status','Actions'].map(h => (
                     <th key={h} className="px-3 py-3 text-left text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -741,7 +754,25 @@ const PrebookingReport = () => {
                         <span className="font-semibold text-blue-700">{b.bookedUserName || b.bookedBy || 'System'}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-xs font-semibold">{b.bookedDate?.slice(0,10)}</td>
+                    {/* Bed Booked Date — planned admission date chosen by staff */}
+                    <td className="px-3 py-3 text-xs">
+                      {b.bookedDate ? (() => {
+                        const [y, m, d] = String(b.bookedDate).slice(0, 10).split('-').map(Number);
+                        return <p className="font-bold text-gray-800">{new Date(y, m - 1, d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>;
+                      })() : <span className="text-gray-300">—</span>}
+                    </td>
+                    {/* Booked At — when staff registered it in this system */}
+                    <td className="px-3 py-3 text-xs">
+                      {b.createdAt ? (() => {
+                        const d = new Date(b.createdAt);
+                        return (
+                          <div>
+                            <p className="font-semibold text-gray-700">{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="text-blue-500 font-mono">{d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</p>
+                          </div>
+                        );
+                      })() : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-3 py-3 text-xs">
                       {b.advanceCollected ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200 font-bold">
@@ -769,12 +800,17 @@ const PrebookingReport = () => {
                         <span className="text-gray-300 text-xs">—</span>
                       )}
                     </td>
+                    {/* Admitted At (HIS) — actual admission date+time from HIS */}
                     <td className="px-3 py-3 text-xs">
-                      {b.hisAdmissionDate ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-bold whitespace-nowrap">
-                          📅 {new Date(b.hisAdmissionDate).toLocaleString('en-GB', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      ) : (
+                      {b.hisAdmissionDate ? (() => {
+                        const d = new Date(b.hisAdmissionDate);
+                        return (
+                          <div>
+                            <p className="font-semibold text-purple-700">{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="text-purple-400 font-mono">{d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
+                          </div>
+                        );
+                      })() : (
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
