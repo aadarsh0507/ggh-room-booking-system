@@ -132,8 +132,10 @@ const PrebookingReport = () => {
 
   const [syncStatus,    setSyncStatus]    = useState(null); // { lastSyncTime, lastSyncCount }
   const [syncing,       setSyncing]       = useState(false);
-  const syncIntervalRef = useRef(null);
-  const loadListRef     = useRef(null); // forward-ref so runSync can call loadList
+  const syncIntervalRef    = useRef(null);
+  const loadListRef        = useRef(null);
+  const tableScrollRef     = useRef(null);
+  const dragState          = useRef({ dragging: false, startX: 0, scrollLeft: 0 });
 
   const fetchSyncStatus = useCallback(() => {
     api.get('/prebooking/sync-status')
@@ -147,7 +149,7 @@ const PrebookingReport = () => {
       // Sync HIS bed & room details for all admitted patients
       await api.post('/dashboard/sync-his-beds');
       // Reload the prebookings list to show updated HIS data
-      if (loadListRef.current) loadListRef.current();
+      if (loadListRef.current)    loadListRef.current();
       if (!silent) setSyncStatus({ lastSyncTime: new Date().toISOString() });
     } catch (err) {
       console.error('[Sync] Error:', err.message);
@@ -161,6 +163,7 @@ const PrebookingReport = () => {
       .then(r => setAvailBeds(r.data.beds))
       .catch(() => {});
   }, []);
+
 
   const loadList = useCallback(() => {
     setListLoading(true);
@@ -190,8 +193,8 @@ const PrebookingReport = () => {
       .finally(() => setWaLoading(false));
   }, [waSearch, waStatus, waFrom, waTo]);
 
-  // Keep ref up-to-date so runSync can call the latest loadList
   useEffect(() => { loadListRef.current = loadList; }, [loadList]);
+
 
   useEffect(() => { loadAvailBeds(); }, [loadAvailBeds]);
   useEffect(() => { loadList(); }, [loadList]);
@@ -231,11 +234,12 @@ const PrebookingReport = () => {
   });
 
   const totalPages      = Math.ceil(filteredList.length / ROWS_PER_PAGE);
+  const todayDate        = new Date().toISOString().slice(0, 10);
   const summaryTotal     = prebookings.length;
   const summaryConfirmed = prebookings.filter(b => b.status === 'Confirmed').length;
   const summaryCancelled = prebookings.filter(b => b.status === 'Cancelled').length;
   const summaryAdmitted  = prebookings.filter(b => b.status === 'Admitted').length;
-  const todayDate        = new Date().toISOString().slice(0, 10);
+  // Upcoming: confirmed + bookedDate strictly after today (from filtered list)
   const summaryUpcoming  = prebookings.filter(b => b.status === 'Confirmed' && String(b.bookedDate).slice(0, 10) > todayDate).length;
 
   // Priority alert counts — only Confirmed bookings
@@ -604,10 +608,10 @@ const PrebookingReport = () => {
                 // Admitted — today only (already admitted today)
                 setFilterDateFrom(todayStr()); setFilterDateTo(todayStr());
               } else if (c.label === 'Cancelled') {
-                // Cancelled — today only
-                setFilterDateFrom(todayStr()); setFilterDateTo(todayStr());
+                // Cancelled — show all regardless of bookedDate
+                setFilterDateFrom(''); setFilterDateTo('');
               } else if (c.label === 'Upcoming') {
-                // Future bookings only — from tomorrow, no end limit
+                // Upcoming = confirmed bookings with bookedDate after today
                 setFilterDateFrom(tomorrow); setFilterDateTo('');
               }
               setListPage(1);
@@ -616,9 +620,9 @@ const PrebookingReport = () => {
           >
             <p className="text-xs font-semibold text-white text-opacity-80 uppercase tracking-wide">{c.label}</p>
             <p className="text-3xl font-black mt-1">{c.value}</p>
-            {c.label === 'Upcoming'  && <p className="text-xs text-white text-opacity-60 mt-0.5">Future dates</p>}
-            {c.label === 'Confirmed' && <p className="text-xs text-white text-opacity-60 mt-0.5">Today onwards</p>}
-            {c.label === 'Total'     && <p className="text-xs text-white text-opacity-60 mt-0.5">Today onwards</p>}
+            {c.label === 'Upcoming'  && <p className="text-xs text-white text-opacity-60 mt-0.5">Future dates only</p>}
+            {c.label === 'Confirmed' && <p className="text-xs text-white text-opacity-60 mt-0.5">All confirmed</p>}
+            {c.label === 'Total'     && <p className="text-xs text-white text-opacity-60 mt-0.5">All bookings</p>}
           </button>
         ))}
       </div>
@@ -717,7 +721,36 @@ const PrebookingReport = () => {
       </div>
 
       {/* ── Table ── */}
-      <div className="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-hidden">
+      <div
+        ref={tableScrollRef}
+        className="bg-white shadow-sm border border-gray-100 rounded-2xl overflow-x-auto select-none"
+        style={{ cursor: dragState.current.dragging ? 'grabbing' : 'grab' }}
+        onMouseDown={e => {
+          const el = tableScrollRef.current;
+          if (!el) return;
+          dragState.current = { dragging: true, moved: false, startX: e.pageX - el.offsetLeft, scrollLeft: el.scrollLeft };
+        }}
+        onMouseMove={e => {
+          const el = tableScrollRef.current;
+          if (!el || !dragState.current.dragging) return;
+          const x = e.pageX - el.offsetLeft;
+          const walk = x - dragState.current.startX;
+          if (Math.abs(walk) > 3) {
+            dragState.current.moved = true;
+            e.preventDefault();
+            el.scrollLeft = dragState.current.scrollLeft - walk;
+            el.style.cursor = 'grabbing';
+          }
+        }}
+        onMouseUp={() => {
+          dragState.current.dragging = false;
+          if (tableScrollRef.current) tableScrollRef.current.style.cursor = 'grab';
+        }}
+        onMouseLeave={() => {
+          dragState.current.dragging = false;
+          if (tableScrollRef.current) tableScrollRef.current.style.cursor = 'grab';
+        }}
+      >
         {listLoading ? (
           <div className="py-20 text-center">
             <svg className="w-7 h-7 animate-spin mx-auto mb-3 text-blue-500" fill="none" viewBox="0 0 24 24">
@@ -727,8 +760,8 @@ const PrebookingReport = () => {
             <p className="text-gray-400 text-sm">Loading report…</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100 text-sm">
+          <div>
+            <table className="min-w-full divide-y divide-gray-100 text-sm" style={{ minWidth: '1200px' }}>
               <thead className="bg-gray-50">
                 <tr>
                   {['Patient','Patient ID','Mobile','Bed No','Doctor','Notes','Insurance','Priority','Booked By','Bed Booked Date','Booked At (System)','Advance','Actual Bed (HIS)','Actual Room (HIS)','Admitted At (HIS)','Status','Actions'].map(h => (

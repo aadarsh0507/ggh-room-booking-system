@@ -43,7 +43,9 @@ const BookBed = () => {
   const { blockedRoomTypes } = useDashboard();
 
   // Date picker — drives the availability query
-  const [forDate, setForDate] = useState(today());
+  const [forDate, setForDate] = useState(
+    location.state?.upcomingPatient?.bookedDate || today()
+  );
 
   const [allBeds, setAllBeds]           = useState([]); // all beds returned (available + occupied + prebooked)
   const [windowDays, setWindowDays]     = useState(3);
@@ -51,9 +53,10 @@ const BookBed = () => {
   const [availError, setAvailError]     = useState('');
 
   // Suggested bed passed from Available Beds page (discharge patient)
-  const suggestedBed = location.state?.suggestedBed || null;
+  const suggestedBed     = location.state?.suggestedBed     || null;
+  const upcomingPatient  = location.state?.upcomingPatient  || null;
 
-  const [filterRT, setFilterRT]     = useState(suggestedBed?.roomType || location.state?.roomType || '');
+  const [filterRT, setFilterRT]     = useState(suggestedBed?.roomType || upcomingPatient?.roomType || location.state?.roomType || '');
   const [filterNS, setFilterNS]     = useState('');
   const [filterShow, setFilterShow] = useState('available'); // 'all' | 'available'
   const [bedSearch, setBedSearch]   = useState('');
@@ -73,6 +76,19 @@ const BookBed = () => {
   const [displacedInfo, setDisplacedInfo]   = useState(null);
   const [cardPreview, setCardPreview]       = useState(null); // bed object being previewed
 
+  const [upcomingPatients, setUpcomingPatients] = useState([]);
+  const [upcomingOpen, setUpcomingOpen]         = useState(true);
+
+  useEffect(() => {
+    const tomorrow = (() => {
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    })();
+    api.get('/prebooking', { params: { status: 'Confirmed', dateFrom: tomorrow } })
+      .then(r => setUpcomingPatients(r.data.prebookings || []))
+      .catch(() => {});
+  }, [successBed]); // refresh after a booking is made
+
   const loadBeds = useCallback((date) => {
     setAvailLoading(true);
     setAvailError('');
@@ -86,6 +102,30 @@ const BookBed = () => {
   }, []);
 
   useEffect(() => { loadBeds(forDate); }, [forDate, loadBeds]);
+
+  // Pre-fill form when arriving from Upcoming Patients panel
+  useEffect(() => {
+    if (!upcomingPatient) return;
+    setForm({
+      ...EMPTY_FORM,
+      patientName:       upcomingPatient.patientName     || '',
+      patientPhone:      upcomingPatient.patientPhone    || '',
+      patientAge:        upcomingPatient.patientAge      || '',
+      patientGender:     upcomingPatient.patientGender   || '',
+      patientId:         upcomingPatient.patientId       || '',
+      doctorName:        upcomingPatient.doctorName      || '',
+      notes:             upcomingPatient.notes           || '',
+      roomType:          upcomingPatient.roomType        || '',
+      nurStation:        upcomingPatient.nurStation      || '',
+      bedNo:             upcomingPatient.bedNo           || '',
+      priority:          upcomingPatient.priority        || 'Regular',
+      isInsured:         !!upcomingPatient.isInsured,
+      insuranceProvider: upcomingPatient.insuranceProvider || '',
+      insurancePolicyNo: upcomingPatient.insurancePolicyNo || '',
+    });
+    if (upcomingPatient.patientId) { setPtNoInput(upcomingPatient.patientId); setPtFound(true); }
+    setShowForm(true);
+  }, []); // eslint-disable-line
 
   // Close card preview on Escape key
   useEffect(() => {
@@ -125,6 +165,40 @@ const BookBed = () => {
     }
     return true;
   });
+
+  const handleBookForUpcoming = (patient) => {
+    // Set date to the patient's booked date and filter to their room type
+    const bd = String(patient.bookedDate).slice(0, 10);
+    setForDate(bd);
+    if (patient.roomType) setFilterRT(patient.roomType);
+    setFilterShow('available');
+    // Pre-fill form with patient details — bed selection still required
+    setForm({
+      ...EMPTY_FORM,
+      patientName:   patient.patientName   || '',
+      patientPhone:  patient.patientPhone  || '',
+      patientAge:    patient.patientAge    || '',
+      patientGender: patient.patientGender || '',
+      patientId:     patient.patientId     || '',
+      doctorName:    patient.doctorName    || '',
+      notes:         patient.notes         || '',
+      roomType:      patient.roomType      || '',
+      nurStation:    patient.nurStation    || '',
+      bedNo:         patient.bedNo         || '',
+      priority:      patient.priority      || 'Regular',
+      isInsured:     !!patient.isInsured,
+      insuranceProvider: patient.insuranceProvider || '',
+      insurancePolicyNo: patient.insurancePolicyNo || '',
+    });
+    if (patient.patientId) { setPtNoInput(patient.patientId); setPtFound(true); }
+    setFormError('');
+    // If they already have a bed assigned, open that card; else just show the bed grid filtered
+    if (patient.bedNo) {
+      const match = allBeds.find(b => b.BED_NO === patient.bedNo);
+      if (match) { setCardPreview(match); return; }
+    }
+    setShowForm(true);
+  };
 
   const handleSelectBed = (bed) => {
     if (!bed.AVAILABLE) return;
@@ -303,6 +377,30 @@ const BookBed = () => {
         </div>
       )}
 
+      {/* ── Upcoming Patient Banner (from Available Beds page) ── */}
+      {upcomingPatient && (
+        <div className="mb-4 bg-violet-50 border-2 border-violet-400 rounded-2xl px-4 py-4 flex flex-wrap items-center gap-4">
+          <div className="w-10 h-10 bg-violet-500 rounded-xl flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-black text-violet-800">Booking for Upcoming Patient</p>
+            <p className="text-xs text-violet-700 mt-0.5">
+              <span className="font-bold">{upcomingPatient.patientName}</span>
+              {upcomingPatient.patientId && <span className="font-mono ml-2 text-violet-500">({upcomingPatient.patientId})</span>}
+              {upcomingPatient.roomType && <span> · {upcomingPatient.roomType}</span>}
+              {upcomingPatient.doctorName && <span> · {upcomingPatient.doctorName}</span>}
+            </p>
+            <p className="text-xs text-violet-500 mt-0.5">
+              Admission date: <span className="font-bold">{new Date(upcomingPatient.bookedDate + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              {' · '}Patient details pre-filled — select a bed to complete booking
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Suggested Bed Banner (from Available Beds page) ── */}
       {suggestedBed && !suggDismissed && (
         <div className="mb-4 bg-green-50 border-2 border-green-400 rounded-2xl px-4 py-4 flex flex-wrap items-start gap-4">
@@ -372,6 +470,85 @@ const BookBed = () => {
           {displacedInfo && (
             <div className="text-xs text-amber-700 pl-7">
               Previous {displacedInfo.priority} booking for <strong>{displacedInfo.patientName}</strong> was displaced to make room for this P1 Emergency booking.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Upcoming Patients Panel ── */}
+      {upcomingPatients.length > 0 && (
+        <div className="bg-white shadow-sm border border-violet-200 rounded-2xl mb-5 overflow-hidden">
+          <button
+            onClick={() => setUpcomingOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse"/>
+              <span className="text-sm font-black text-violet-800">Upcoming Patients</span>
+              <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full font-bold">
+                {upcomingPatients.length}
+              </span>
+              <span className="text-xs text-violet-500 hidden sm:inline">— Confirmed bookings for future dates · click a patient to assign a bed</span>
+            </div>
+            <svg className={`w-4 h-4 text-violet-500 transition-transform ${upcomingOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          {upcomingOpen && (
+            <div className="divide-y divide-gray-50">
+              {upcomingPatients.map(p => {
+                const bd = String(p.bookedDate).slice(0, 10);
+                const isToday = bd === today();
+                const priorityColors = {
+                  Emergency: 'bg-red-100 text-red-700 border-red-200',
+                  VIP:       'bg-purple-100 text-purple-700 border-purple-200',
+                  Regular:   'bg-blue-50 text-blue-600 border-blue-100',
+                };
+                return (
+                  <div key={p.id} className="flex flex-wrap items-center gap-3 px-5 py-3 hover:bg-violet-50 transition-colors">
+                    {/* Priority dot */}
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${p.priority === 'Emergency' ? 'bg-red-500' : p.priority === 'VIP' ? 'bg-purple-500' : 'bg-blue-400'}`}/>
+
+                    {/* Patient info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-gray-800 truncate">{p.patientName}</p>
+                        {p.patientId && <span className="text-xs font-mono text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded">{p.patientId}</span>}
+                        <span className={`text-xs font-bold border rounded-full px-2 py-0.5 ${priorityColors[p.priority] || priorityColors.Regular}`}>
+                          {p.priority}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-xs text-gray-400">
+                        {p.roomType    && <span>🏥 {p.roomType}</span>}
+                        {p.nurStation  && <span>📍 {p.nurStation}</span>}
+                        {p.bedNo       && <span>🛏 Requested: <span className="font-mono font-semibold text-gray-600">{p.bedNo}</span></span>}
+                        {p.doctorName  && <span>👨‍⚕️ {p.doctorName}</span>}
+                        {p.patientPhone && <span>📞 {p.patientPhone}</span>}
+                      </div>
+                    </div>
+
+                    {/* Date badge */}
+                    <div className="text-right flex-shrink-0">
+                      <p className={`text-xs font-black ${isToday ? 'text-orange-600' : 'text-violet-700'}`}>
+                        {isToday ? 'Today' : new Date(bd + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      <p className="text-xs text-gray-400">Admission date</p>
+                    </div>
+
+                    {/* Action button */}
+                    <button
+                      onClick={() => handleBookForUpcoming(p)}
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                      </svg>
+                      Assign Bed
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

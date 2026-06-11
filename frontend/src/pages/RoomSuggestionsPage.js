@@ -26,6 +26,19 @@ const RoomSuggestionsPage = () => {
   const [search, setSearch]         = useState('');
   const [view, setView]             = useState('all'); // 'all' | 'billed' | 'pending'
 
+  const [upcomingPatients, setUpcomingPatients] = useState([]);
+  const [upcomingOpen, setUpcomingOpen]         = useState(true);
+
+  useEffect(() => {
+    const tomorrow = (() => {
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    })();
+    api.get('/prebooking', { params: { status: 'Confirmed', dateFrom: tomorrow } })
+      .then(r => setUpcomingPatients(r.data.prebookings || []))
+      .catch(() => {});
+  }, []);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -100,6 +113,31 @@ const RoomSuggestionsPage = () => {
     });
   };
 
+  const handleBookUpcoming = (p) => {
+    navigate('/book-bed', {
+      state: {
+        upcomingPatient: {
+          id:              p.id,
+          patientName:     p.patientName,
+          patientId:       p.patientId,
+          patientPhone:    p.patientPhone,
+          patientAge:      p.patientAge,
+          patientGender:   p.patientGender,
+          doctorName:      p.doctorName,
+          notes:           p.notes,
+          roomType:        p.roomType,
+          nurStation:      p.nurStation,
+          bedNo:           p.bedNo,
+          bookedDate:      String(p.bookedDate).slice(0, 10),
+          priority:        p.priority,
+          isInsured:       p.isInsured,
+          insuranceProvider: p.insuranceProvider,
+          insurancePolicyNo: p.insurancePolicyNo,
+        },
+      },
+    });
+  };
+
   return (
     <Layout title="Available Beds">
 
@@ -165,6 +203,95 @@ const RoomSuggestionsPage = () => {
             <p className="text-2xl font-black text-yellow-500">{pendingCount}</p>
             <p className="text-xs text-gray-400 font-semibold mt-0.5">Pending Billing</p>
           </div>
+        </div>
+      )}
+
+      {/* ── Upcoming Patients Panel ── */}
+      {upcomingPatients.length > 0 && (
+        <div className="bg-white shadow-sm border border-violet-200 rounded-2xl mb-5 overflow-hidden">
+          {/* Header */}
+          <button
+            onClick={() => setUpcomingOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-3 bg-gradient-to-r from-violet-50 to-purple-50 hover:from-violet-100 hover:to-purple-100 transition-colors"
+          >
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse flex-shrink-0"/>
+              <span className="text-sm font-black text-violet-800">Upcoming Patients</span>
+              <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 px-2 py-0.5 rounded-full font-bold">
+                {upcomingPatients.length}
+              </span>
+              <span className="text-xs text-violet-500 hidden sm:inline">— Confirmed bookings for future dates · assign a bed</span>
+            </div>
+            <svg className={`w-4 h-4 text-violet-500 transition-transform flex-shrink-0 ${upcomingOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+
+          {/* List */}
+          {upcomingOpen && (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100 text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {['#', 'Patient', 'Room Type', 'Nursing Station', 'Requested Bed', 'Doctor', 'Admission Date', 'Priority', 'Action'].map(h => (
+                      <th key={h} className="px-4 py-2.5 text-left text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {upcomingPatients.map((p, i) => {
+                    const bd = String(p.bookedDate).slice(0, 10);
+                    const priorityStyle = {
+                      Emergency: { bg: '#fef2f2', border: '#fecaca', color: '#b91c1c', dot: '#ef4444' },
+                      VIP:       { bg: '#f5f3ff', border: '#ddd6fe', color: '#6d28d9', dot: '#8b5cf6' },
+                      Regular:   { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', dot: '#3b82f6' },
+                    }[p.priority] || { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', dot: '#3b82f6' };
+                    return (
+                      <tr key={p.id} className="hover:bg-violet-50/40 transition-colors">
+                        <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-gray-800 whitespace-nowrap">{p.patientName || '—'}</p>
+                          {p.patientId && <p className="text-xs font-mono text-blue-600 mt-0.5">{p.patientId}</p>}
+                          {p.patientPhone && <p className="text-xs text-gray-400">{p.patientPhone}</p>}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-xs font-semibold">{p.roomType || '—'}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{p.nurStation || '—'}</td>
+                        <td className="px-4 py-3">
+                          {p.bedNo
+                            ? <span className="font-mono font-black text-gray-800">{p.bedNo}</span>
+                            : <span className="text-xs text-gray-300">Not assigned</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{p.doctorName || '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="text-xs font-black text-violet-700">
+                            {new Date(bd + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border"
+                            style={{ backgroundColor: priorityStyle.bg, borderColor: priorityStyle.border, color: priorityStyle.color }}>
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: priorityStyle.dot }}/>
+                            {p.priority}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <button onClick={() => handleBookUpcoming(p)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold rounded-xl transition-colors shadow-sm">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Assign Bed
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

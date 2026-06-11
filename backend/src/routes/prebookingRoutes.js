@@ -4,6 +4,7 @@ const {
   getAvailableBeds,
   suggestRooms,
   listPrebookings,
+  getPrebookingSummary,
   createPrebooking,
   updatePrebooking,
   cancelPrebooking,
@@ -21,6 +22,7 @@ const { getSyncStatus, triggerSync } = require('../controllers/dashboardControll
 const { protect, authorize } = require('../middleware/auth');
 
 // Specific routes FIRST (before :id routes)
+router.get('/summary',                                 protect, getPrebookingSummary);
 router.get('/whatsapp-logs',                            protect, getWhatsappLogs);
 router.get('/sync-status',                             protect, getSyncStatus);
 router.post('/sync',                                   protect, authorize('Admin'), triggerSync);

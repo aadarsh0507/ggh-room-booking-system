@@ -2,6 +2,15 @@ const asyncHandler = require('express-async-handler');
 const { hisQuery, query } = require('../config/database');
 const { sendBookingConfirmation, getLogs } = require('../services/whatsappService');
 
+// Returns today's date as YYYY-MM-DD in the Node process local timezone (not UTC)
+const localToday = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // ── MySQL RoomTypeRestrictions table ─────────────────────────────────────────
 const ensureRestrictionsTable = async () => {
   await query(`
@@ -78,12 +87,13 @@ const BOOKING_WINDOW_DAYS = 3;
 // Auto-expire Confirmed prebookings whose bookedDate is more than BOOKING_WINDOW_DAYS in the past
 // (patient either no-showed or booking is stale). Returns count of expired rows.
 const expireStaleBookings = async () => {
+  const today = localToday();
   const result = await query(
     `UPDATE \`Prebookings\`
      SET \`status\` = 'Cancelled', \`cancelledBy\` = 'System-Expired', \`cancelledAt\` = NOW()
      WHERE \`status\` = 'Confirmed'
-       AND \`bookedDate\` < CURDATE() - INTERVAL ? DAY`,
-    [BOOKING_WINDOW_DAYS]
+       AND DATE_FORMAT(\`bookedDate\`, '%Y-%m-%d') < DATE_FORMAT(DATE_SUB(?, INTERVAL ? DAY), '%Y-%m-%d')`,
+    [today, BOOKING_WINDOW_DAYS]
   );
   if (result.affectedRows > 0) {
     console.log(`[Prebooking] Auto-expired ${result.affectedRows} stale booking(s)`);
@@ -93,8 +103,8 @@ const expireStaleBookings = async () => {
 
 // ── Available beds for a given date — reads from MySQL cache (no Oracle calls) ─
 const getAvailableBedsForDate = async (forDate) => {
-  const targetDate = forDate || new Date().toISOString().slice(0, 10);
-  const isFutureDate = targetDate > new Date().toISOString().slice(0, 10);
+  const targetDate = forDate || localToday();
+  const isFutureDate = targetDate > localToday();
 
   await expireStaleBookings();
 
@@ -290,18 +300,42 @@ exports.suggestRooms = asyncHandler(async (req, res) => {
   }
 });
 
+// GET /api/prebooking/summary  — server-side KPI counts (always accurate, no date filter)
+exports.getPrebookingSummary = asyncHandler(async (req, res) => {
+  await expireStaleBookings();
+  const today = localToday();
+  const rows = await query(`
+    SELECT
+      COUNT(*)                                                                          AS total,
+      SUM(status = 'Confirmed')                                                         AS confirmed,
+      SUM(status = 'Admitted')                                                          AS admitted,
+      SUM(status = 'Cancelled')                                                         AS cancelled,
+      SUM(status = 'Confirmed' AND DATE_FORMAT(bookedDate, '%Y-%m-%d') > ?)             AS upcoming
+    FROM \`Prebookings\`
+  `, [today]);
+  const r = rows[0];
+  res.json({
+    total:     Number(r.total)     || 0,
+    confirmed: Number(r.confirmed) || 0,
+    admitted:  Number(r.admitted)  || 0,
+    cancelled: Number(r.cancelled) || 0,
+    upcoming:  Number(r.upcoming)  || 0,
+  });
+});
+
 // GET /api/prebooking  — list prebookings with optional filters; priority queue sort for Confirmed
 exports.listPrebookings = asyncHandler(async (req, res) => {
+  await expireStaleBookings();
   const { status, dateFrom, dateTo, roomType, nurStation, priority, priorityCategory } = req.query;
   let sql  = `
-    SELECT p.*
+    SELECT p.*, DATE_FORMAT(p.\`bookedDate\`, '%Y-%m-%d') AS bookedDate
     FROM \`Prebookings\` p
     WHERE 1=1
   `;
   const params = [];
   if (status)           { sql += ' AND p.\`status\` = ?';            params.push(status); }
-  if (dateFrom)         { sql += ' AND p.\`bookedDate\` >= ?';       params.push(dateFrom); }
-  if (dateTo)           { sql += ' AND p.\`bookedDate\` <= ?';       params.push(dateTo); }
+  if (dateFrom)         { sql += " AND DATE_FORMAT(p.`bookedDate`,'%Y-%m-%d') >= ?"; params.push(dateFrom); }
+  if (dateTo)           { sql += " AND DATE_FORMAT(p.`bookedDate`,'%Y-%m-%d') <= ?"; params.push(dateTo); }
   if (roomType)         { sql += ' AND p.\`roomType\` = ?';          params.push(roomType); }
   if (nurStation)       { sql += ' AND p.\`nurStation\` = ?';        params.push(nurStation); }
   if (priority)         { sql += ' AND p.\`priority\` = ?';          params.push(priority); }

@@ -16,6 +16,7 @@ const connectDB = async () => {
       waitForConnections: true,
       connectionLimit:    10,
       queueLimit:         0,
+      timezone:           process.env.DB_TIMEZONE || '+05:30', // IST — prevents DATE shifting on read/write
     });
 
     const conn = await pool.getConnection();

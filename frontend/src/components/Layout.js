@@ -17,6 +17,48 @@ const Layout = ({ title, children }) => {
   const [pwdSuccess, setPwdSuccess] = useState('');
   const [pwdLoading, setPwdLoading] = useState(false);
 
+  // ── Idle auto-logout ──────────────────────────────────────────────────────
+  const IDLE_MINUTES   = 15;   // warn after this many minutes of inactivity
+  const WARN_SECONDS   = 60;   // countdown before forced logout
+  const [idleWarning,  setIdleWarning]  = useState(false);
+  const [countdown,    setCountdown]    = useState(WARN_SECONDS);
+
+  useEffect(() => {
+    let idleTimer;
+    let countdownTimer;
+
+    const resetIdle = () => {
+      if (idleWarning) return; // don't reset while warning is showing
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        setCountdown(WARN_SECONDS);
+        setIdleWarning(true);
+      }, IDLE_MINUTES * 60 * 1000);
+    };
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach(e => window.addEventListener(e, resetIdle));
+    resetIdle(); // start on mount
+
+    return () => {
+      clearTimeout(idleTimer);
+      clearInterval(countdownTimer);
+      events.forEach(e => window.removeEventListener(e, resetIdle));
+    };
+  }, [idleWarning]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!idleWarning) return;
+    if (countdown <= 0) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      return;
+    }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [idleWarning, countdown]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -198,6 +240,43 @@ const Layout = ({ title, children }) => {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Idle Warning Modal ── */}
+      {idleWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[100] px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-orange-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+            </div>
+            <h2 className="text-lg font-black text-gray-800 mb-1">Session Timeout Warning</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              You've been inactive for {IDLE_MINUTES} minutes.<br/>
+              You will be logged out automatically in
+            </p>
+            <div className="w-20 h-20 rounded-full border-4 border-orange-400 flex items-center justify-center mx-auto mb-5">
+              <span className={`text-3xl font-black ${countdown <= 10 ? 'text-red-600' : 'text-orange-500'}`}>
+                {countdown}
+              </span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setIdleWarning(false); setCountdown(WARN_SECONDS); }}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-colors"
+              >
+                Stay Logged In
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors"
+              >
+                Logout Now
+              </button>
+            </div>
           </div>
         </div>
       )}

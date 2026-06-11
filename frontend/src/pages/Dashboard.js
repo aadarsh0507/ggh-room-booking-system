@@ -83,13 +83,21 @@ const DashboardPage = () => {
   const [heatSort, setHeatSort] = useState('pct-desc');
   const [syncStatus, setSyncStatus] = useState(null);
 
-  // Priority queue — P1 and P2 confirmed bookings
-  const [urgentBookings, setUrgentBookings] = useState([]);
+  // Priority queue — P1 and P2 confirmed bookings + upcoming count
+  const [urgentBookings,  setUrgentBookings]  = useState([]);
+  const [upcomingCount,   setUpcomingCount]   = useState(0);
   useEffect(() => {
-    api.get('/prebooking', { params: { status: 'Confirmed' } })
+    const todayISO = new Date().toISOString().slice(0, 10);
+    // Upcoming count from server-side summary (accurate, includes expiry)
+    api.get('/prebooking/summary')
+      .then(r => setUpcomingCount(r.data.upcoming || 0))
+      .catch(() => {});
+    // Priority queue = today + future confirmed bookings
+    api.get('/prebooking', { params: { status: 'Confirmed', dateFrom: todayISO } })
       .then(r => {
-        const urgent = (r.data.prebookings || []).filter(
-          b => b.priority === 'P1-Emergency' || b.priority === 'P2-Urgent'
+        const all = r.data.prebookings || [];
+        const urgent = all.filter(
+          b => b.priority === 'Emergency' || b.priority === 'VIP'
         );
         setUrgentBookings(urgent);
       })
@@ -123,7 +131,7 @@ const DashboardPage = () => {
     ? Math.round((stats.occupiedBeds / stats.activeBeds) * 100) : 0;
   const donutData = stats ? [
     { name: 'Occupied',   value: stats.occupiedBeds  ?? 0, color: '#ef4444' },
-    { name: 'Pre-booked', value: prebookedBeds,             color: '#f97316' },
+    { name: 'Upcoming',   value: upcomingCount,             color: '#f97316' },
     { name: 'Available',  value: stats.availableBeds ?? 0, color: '#10b981' },
     { name: 'Inactive',   value: stats.inactiveBeds  ?? 0, color: '#e5e7eb' },
   ] : [];
@@ -326,7 +334,7 @@ const DashboardPage = () => {
               badge={`${occupancyPct}%`}
               icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20H7a2 2 0 01-2-2V9a2 2 0 012-2h1m8 0h1a2 2 0 012 2v9a2 2 0 01-2 2z"/></svg>}
               onClick={() => navigate('/occupied')} />
-            <KpiCard label="Pre-booked"  value={prebookedBeds}   sub="beds held"
+            <KpiCard label="Upcoming"  value={upcomingCount}   sub="future dates only"
               gradient="bg-gradient-to-br from-orange-400 to-orange-600 shadow-md"
               icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>}
               onClick={() => navigate('/prebooking-report', { state: { statusFilter: 'Confirmed' } })} />
