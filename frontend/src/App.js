@@ -41,9 +41,21 @@ const canAccess = (pageLabel) => {
 
 // ── Guards ────────────────────────────────────────────────────────────────────
 
-// Block unauthenticated users
+// Block unauthenticated users; also handles bfcache restores after logout.
 const RequireAuth = ({ children }) => {
   const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    const onPageShow = (e) => {
+      // bfcache restore: page was served from cache; re-check token
+      if (e.persisted && !localStorage.getItem('token')) {
+        window.location.replace('/login');
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   if (!token) return <Navigate to="/login" replace />;
   return children;
 };

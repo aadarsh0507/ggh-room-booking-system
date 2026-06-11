@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './Sidebar';
 import { useDashboard } from '../context/DashboardContext';
-import api from '../services/api';
+import api, { logout } from '../services/api';
 
 const Layout = ({ title, children }) => {
   const { fetchData, toDate } = useDashboard();
@@ -50,20 +50,14 @@ const Layout = ({ title, children }) => {
   useEffect(() => {
     if (!idleWarning) return;
     if (countdown <= 0) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      logout();
       return;
     }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [idleWarning, countdown]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-  };
+  const handleLogout = () => logout();
 
   const openChangePwd = () => {
     setPwdForm({ currentPassword: '', newPassword: '', confirmPassword: '' });

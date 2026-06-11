@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
 const Login = () => {
@@ -6,6 +6,19 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+
+  useEffect(() => {
+    // Guard against bfcache: if the browser navigates back to /login but the user
+    // is already authenticated (e.g. opened a new tab and logged in), redirect home.
+    // Also forces a fresh render on bfcache restore so stale state is cleared.
+    const onPageShow = (e) => {
+      if (e.persisted && localStorage.getItem('token')) {
+        window.location.replace('/');
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
